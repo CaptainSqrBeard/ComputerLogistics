@@ -37,6 +37,7 @@ Legacy program that gives manual access to main storage through simple GUI. It c
 - Search items in the storage
 - Get items from the storage
 - Put items inside the storage
+
 Use `cli.lua` to configure it.
 
 This program was not built with other logistic programs in mind. It's completely standalone. All required modules come pre-installed in program folder.
