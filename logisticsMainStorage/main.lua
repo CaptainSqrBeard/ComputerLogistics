@@ -68,26 +68,42 @@ local function commandGetItemAmount(id)
     return csecureNet.responses.success, totalFound
 end
 
+local function commandGetItemsAmount(ids)
+    local itemAmounts = {}
+    for i, id in ipairs(ids) do
+        local totalFound, itemEntries = cstorage.searchByExactId(itemStorages, nil, id)
+        itemAmounts[id] = totalFound
+    end
+
+    return csecureNet.responses.success, itemAmounts
+end
+
 local function respondToCommand(verifiedMessage, usedModem, replyChannel)
+    local requestId = csecureNet.getHeaderValue(verifiedMessage, "requestId")
     local type = verifiedMessage.message.type
 
     if type == "ping" then
-        csecureNet.sendRespond(csecureNet.responses.success, PROTOCOL, verifiedMessage.publicKey, usedModem, replyChannel)
+        csecureNet.sendRespond(csecureNet.responses.success, PROTOCOL, requestId, usedModem, replyChannel)
     elseif type == "moveItems" then
-        csecureNet.sendRespond(csecureNet.responses.processing, PROTOCOL, verifiedMessage.publicKey, usedModem, replyChannel)
+        csecureNet.sendRespond(csecureNet.responses.processing, PROTOCOL, requestId, usedModem, replyChannel)
 
         local result = commandMoveItems(verifiedMessage.message.instructions, verifiedMessage.message.onlyFull)
-        csecureNet.sendRespond(result, PROTOCOL, verifiedMessage.publicKey, usedModem, replyChannel)
+        csecureNet.sendRespond(result, PROTOCOL, requestId, usedModem, replyChannel)
     elseif type == "getItem" then
-        csecureNet.sendRespond(csecureNet.responses.processing, PROTOCOL, verifiedMessage.publicKey, usedModem, replyChannel)
+        csecureNet.sendRespond(csecureNet.responses.processing, PROTOCOL, requestId, usedModem, replyChannel)
 
         local result, context = commandGetItemAmount(verifiedMessage.message.id)
-        csecureNet.sendRespondWithContext(result, context, PROTOCOL, verifiedMessage.publicKey, usedModem, replyChannel)
+        csecureNet.sendRespondWithContext(result, context, PROTOCOL, requestId, usedModem, replyChannel)
+    elseif type == "getItems" then
+        csecureNet.sendRespond(csecureNet.responses.processing, PROTOCOL, requestId, usedModem, replyChannel)
+
+        local result, context = commandGetItemsAmount(verifiedMessage.message.ids)
+        csecureNet.sendRespondWithContext(result, context, PROTOCOL, requestId, usedModem, replyChannel)
     elseif type == "pullItems" then
-        csecureNet.sendRespond(csecureNet.responses.processing, PROTOCOL, verifiedMessage.publicKey, usedModem, replyChannel)
+        csecureNet.sendRespond(csecureNet.responses.processing, PROTOCOL, requestId, usedModem, replyChannel)
 
         local result = commandPullItems(verifiedMessage.message.fromContainer)
-        csecureNet.sendRespond(result, PROTOCOL, verifiedMessage.publicKey, usedModem, replyChannel)
+        csecureNet.sendRespond(result, PROTOCOL, requestId, usedModem, replyChannel)
     end
 end
 
@@ -126,15 +142,14 @@ while true do
         local msg = eventData[5]
         local distance = eventData[6]
 
-        if csecureNet.isValidMessage(msg) and csecureNet.getHeaderValue(msg, "protocol") == PROTOCOL then
+        if csecureNet.isValidMessage(msg) and csecureNet.getHeaderValue(msg, "protocol") == PROTOCOL and csecureNet.getHeaderValue(msg, "toRole") == "mainStorage" then
             local receivedModem  = usedModem
             local verifiedMessage = csecureNet.processMessage(msg, receivedModem, replyChannel)
             if verifiedMessage ~= nil then
-                
                 local success, errorMsg = pcall(respondToCommand, verifiedMessage, usedModem, replyChannel)
 
                 if not success then
-                    csecureNet.sendRespond(csecureNet.responses.internal_server_error, PROTOCOL, verifiedMessage.publicKey, usedModem, replyChannel)
+                    csecureNet.sendRespond(csecureNet.responses.internal_server_error, PROTOCOL, csecureNet.getHeaderValue(msg, "requestId"), usedModem, replyChannel)
                     print("Error while running command!\n"..errorMsg)
                 end
             end

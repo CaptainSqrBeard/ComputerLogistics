@@ -33,7 +33,7 @@ local function pingMessage()
     modem.transmit(PORT, PORT, signedPingMessage)
 
     -- Wait for server respond. This will return one of csecureNet.responses or nil if server didn't respond
-    local respond = csecureNet.awaitRespond(5, modem, PORT)
+    local respond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
     print("Ping respond:", respond)
     
     -- Possible responces
@@ -60,12 +60,12 @@ local function pushItemsMessage()
     modem.transmit(PORT, PORT, signedPingMessage)
 
     -- Server will first anounce that it started to process request.
-    local respond = csecureNet.awaitRespond(5, modem, PORT)
+    local respond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
     print("First respond:", respond)
 
     -- Wait for final respond
     if respond == csecureNet.responses.processing then
-        local finalRespond = csecureNet.awaitRespond(5, modem, PORT)
+        local finalRespond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
         print("Final respond:", finalRespond)
     end
 
@@ -88,13 +88,13 @@ local function getItemMessage()
     modem.transmit(PORT, PORT, signedPingMessage)
 
     -- Server will first anounce that it started to process request.
-    local respond = csecureNet.awaitRespond(5, modem, PORT)
+    local respond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
     print("Initial respond:", respond)
 
     -- If server started to process initial respond, then wait for final respond.
     if respond == csecureNet.responses.processing then
         -- This respond will have additional context: item amount
-        local finalRespond, finalContext = csecureNet.awaitRespond(5, modem, PORT)
+        local finalRespond, finalContext = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
         print("Final respond:", finalRespond)
         print("Context:", finalContext)
     end
@@ -113,12 +113,12 @@ local function pullItemsMessage()
     modem.transmit(PORT, PORT, signedPingMessage)
 
     -- Server will first anounce that it started to process request.
-    local respond = csecureNet.awaitRespond(5, modem, PORT)
+    local respond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
     print("Initial respond:", respond)
 
     -- Wait for final respond.
     if respond == csecureNet.responses.processing then
-        local finalRespond = csecureNet.awaitRespond(5, modem, PORT)
+        local finalRespond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
         print("Final respond:", finalRespond)
     end
     

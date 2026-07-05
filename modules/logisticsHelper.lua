@@ -1,13 +1,19 @@
 local module = {}
 
 local expect = require("cc.expect")
-local PROTOCOL = "csLogistics"
+
+module.PROTOCOL = "csLogistics"
+module.ROLE_MAIN_STORAGE = "mainStorage"
+module.ROLE_BRIGADIER = "brigadier"
+module.ROLE_CRAFTER = "crafter"
 
 function module.buildPingMessage()
     return {
         type = "ping"
     }, {
-        protocol = PROTOCOL
+        protocol = module.PROTOCOL,
+        toRole = module.ROLE_MAIN_STORAGE,
+        requestId = math.random(10000000, 99999999)
     }
 end
 
@@ -20,7 +26,9 @@ function module.buildPushItemsMessage(onlyFull, instructions)
         instructions = instructions,
         onlyFull = onlyFull
     }, {
-        protocol = PROTOCOL
+        protocol = module.PROTOCOL,
+        toRole = module.ROLE_MAIN_STORAGE,
+        requestId = math.random(10000000, 99999999)
     }
 end
 
@@ -40,7 +48,22 @@ function module.buildGetItemAmount(id)
         type = "getItem",
         id = id
     }, {
-        protocol = PROTOCOL
+        protocol = module.PROTOCOL,
+        toRole = module.ROLE_MAIN_STORAGE,
+        requestId = math.random(10000000, 99999999)
+    }
+end
+
+function module.buildGetItemsAmount(id)
+    expect(1, id, "string")
+
+    return {
+        type = "getItems",
+        id = id
+    }, {
+        protocol = module.PROTOCOL,
+        toRole = module.ROLE_MAIN_STORAGE,
+        requestId = math.random(10000000, 99999999)
     }
 end
 
@@ -51,7 +74,9 @@ function module.buildPullItems(fromContainer)
         type = "pullItems",
         fromContainer = fromContainer
     }, {
-        protocol = PROTOCOL
+        protocol = module.PROTOCOL,
+        toRole = module.ROLE_MAIN_STORAGE,
+        requestId = math.random(10000000, 99999999)
     }
 end
 

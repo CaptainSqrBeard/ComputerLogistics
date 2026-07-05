@@ -208,23 +208,22 @@ function module.getHeaderValue(message, value)
     return message.header[value]
 end
 
-function module.sendRespond(statusCode, protocol, respondTo, modem, port)
+function module.sendRespond(statusCode, protocol, requestId, modem, port)
     expect(1, statusCode, "number")
     expect(2, protocol, "string")
-    expect(3, respondTo, "string")
+    expect(3, requestId, "number")
     expect(5, port, "number")
 
     local respond = module.writeMessage({
-            respondTo = respondTo,
             status = statusCode
         }, {
             protocol = protocol,
-            respondTo = respondTo
+            respondTo = requestId
         })
     modem.transmit(port, port, respond)
 
     if (module.verbose) then
-        print("Send respond message to "..base64.encode(respondTo))
+        print("Send respond message to request #"..base64.encode(requestId))
     end
 end
 
@@ -249,7 +248,11 @@ function module.sendRespondWithContext(statusCode, context, protocol, respondTo,
     end
 end
 
-function module.awaitRespond(timeout, modem, port)
+function module.awaitRespond(timeout, modem, port, requestId)
+    expect(1, timeout, "number", "nil")
+    expect(3, port, "number")
+    expect(4, requestId, "number")
+
     local timer
     if timeout ~= nil then
         timer = os.startTimer(timeout)
@@ -273,10 +276,10 @@ function module.awaitRespond(timeout, modem, port)
             if peripheral.getName(modem) == usedModem and
                 port == usedPort and
                 module.isValidMessage(msg) and
-                module.getHeaderValue(msg, "respondTo") == module.publicKeyBase64
+                module.getHeaderValue(msg, "requestId") == requestId
             then
                 local verifiedMessage = module.readMessage(msg)
-                if verifiedMessage ~= nil and verifiedMessage.message.respondTo == module.publicKeyBase64 then
+                if verifiedMessage ~= nil then
                     return verifiedMessage.message.status, verifiedMessage.message.context
                 end
             end
