@@ -1,0 +1,27 @@
+{
+    "id": "minecraft:barrel",
+    "amount": 1,
+    "timeout": 60,
+    "crafter": "minecraft:crafting",
+    "requires": [
+        {
+            "id": "minecraft:oak_planks",
+            "amount": 6
+        },
+        {
+            "id": "minecraft:oak_slab",
+            "amount": 2
+        }
+    ],
+    "crafterData": {
+        "ingredients": [
+            "minecraft:oak_planks",
+            "minecraft:oak_slab"
+        ],
+        "shape": [
+            1,2,1,
+            1,0,1,
+            1,2,1
+        ]
+    }
+}

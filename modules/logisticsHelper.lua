@@ -80,4 +80,21 @@ function module.buildPullItems(fromContainer)
     }
 end
 
+function module.buildCrafterCraftRequest(crafter, repeats, crafterData)
+    expect(1, crafter, "string")
+    expect(2, repeats, "number")
+    expect(3, crafterData, "table")
+
+    return {
+        type = "craft",
+        crafter = crafter,
+        repeats = repeats,
+        crafterData = crafterData
+    }, {
+        protocol = module.PROTOCOL,
+        toRole = module.ROLE_CRAFTER,
+        requestId = math.random(10000000, 99999999)
+    }
+end
+
 return module

@@ -78,8 +78,8 @@ local function commandGetItemsAmount(ids)
     return csecureNet.responses.success, itemAmounts
 end
 
-local function respondToCommand(verifiedMessage, usedModem, replyChannel)
-    local requestId = csecureNet.getHeaderValue(verifiedMessage, "requestId")
+local function respondToCommand(verifiedMessage, msg, usedModem, replyChannel)
+    local requestId = csecureNet.getHeaderValue(msg, "requestId")
     local type = verifiedMessage.message.type
 
     if type == "ping" then
@@ -146,7 +146,7 @@ while true do
             local receivedModem  = usedModem
             local verifiedMessage = csecureNet.processMessage(msg, receivedModem, replyChannel)
             if verifiedMessage ~= nil then
-                local success, errorMsg = pcall(respondToCommand, verifiedMessage, usedModem, replyChannel)
+                local success, errorMsg = pcall(respondToCommand, verifiedMessage, msg, usedModem, replyChannel)
 
                 if not success then
                     csecureNet.sendRespond(csecureNet.responses.internal_server_error, PROTOCOL, csecureNet.getHeaderValue(msg, "requestId"), usedModem, replyChannel)

@@ -18,6 +18,7 @@ module.requireAuthorizedKey = true
 
 module.responses = {}
 module.responses.processing = 100
+module.responses.hold_it = 104
 
 module.responses.success = 200
 module.responses.partial_content = 206
@@ -29,6 +30,7 @@ module.responses.unauthorized = 401
 module.responses.i_am_teapot = 418
 
 module.responses.internal_server_error = 500
+module.responses.not_implemented = 501
 
 function module.init()
     random.initWithTiming()
@@ -64,7 +66,6 @@ function module.init()
     end
     if (module.verbose) then
         print("Public key: "..module.publicKeyBase64)
-        --print("Secret key: "..secretKeyBase64)
     end
 end
 
@@ -218,33 +219,33 @@ function module.sendRespond(statusCode, protocol, requestId, modem, port)
             status = statusCode
         }, {
             protocol = protocol,
-            respondTo = requestId
+            requestId = requestId
         })
     modem.transmit(port, port, respond)
 
     if (module.verbose) then
-        print("Send respond message to request #"..base64.encode(requestId))
+        print("Send respond message to request #"..requestId)
     end
 end
 
-function module.sendRespondWithContext(statusCode, context, protocol, respondTo, modem, port)
+function module.sendRespondWithContext(statusCode, context, protocol, requestId, modem, port)
     expect(1, statusCode, "number")
     expect(3, protocol, "string")
-    expect(4, respondTo, "string")
+    expect(4, requestId, "number")
     expect(6, port, "number")
 
     local respond = module.writeMessage({
-            respondTo = respondTo,
+            requestId = requestId,
             status = statusCode,
             context = context
         }, {
             protocol = protocol,
-            respondTo = respondTo
+            requestId = requestId
         })
     modem.transmit(port, port, respond)
 
     if (module.verbose) then
-        print("Send respond message to "..base64.encode(respondTo))
+        print("Send respond message to "..requestId)
     end
 end
 

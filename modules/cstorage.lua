@@ -130,7 +130,6 @@ function module.pushItems(itemEntries, targetContainer, targetSlot, amount, simu
         end
 
         if itemEntry.amount > 0 then
-            print(itemEntry, textutils.serialize(itemEntry, {"compact"}))
             local result = module.moveItems(itemEntry.inventory, itemEntry.slot, targetContainer, targetSlot, remainingTakeAmount, simulate)
             if result ~= nil then
                 itemEntry.amount = itemEntry.amount - result
