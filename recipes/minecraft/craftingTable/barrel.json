@@ -1,7 +1,6 @@
 {
     "id": "minecraft:barrel",
     "amount": 1,
-    "timeout": 60,
     "crafter": "minecraft:crafting",
     "requires": [
         {

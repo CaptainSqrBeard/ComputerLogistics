@@ -1,6 +1,7 @@
 local csecureNet = require("csecureNet")
 local logisticsHelper = require("logisticsHelper")
 
+local REQUEST_TIMEOUT = 10
 local SUPPORT_DELAY = 20
 
 local knownRecipes = {}
@@ -59,18 +60,18 @@ local function requestItem(id, repeats)
         print("Requested "..id.." "..promise.."x. Now promised:", getPromiseItem(id))
 
         while true do
-            local processRespond, finalContext = csecureNet.awaitRespond(recipe.timeout, modem, PORT, requestId)
+            local processRespond, finalContext = csecureNet.awaitRespond(REQUEST_TIMEOUT, modem, PORT, requestId)
             if processRespond == csecureNet.responses.success then
                 promiseItem(id, -promise)
-                print("Request for "..id.." "..promise.."x completed. Now promised: "..getPromiseItem(id))
+                print("Compeleted request for "..id.." "..promise.."x. Now promised: "..getPromiseItem(id))
                 return true
             elseif processRespond == csecureNet.responses.partial_content then
                 promiseItem(id, -promise)
-                print("Request for "..id.." "..promise.."x partially completed. Now promised: "..getPromiseItem(id))
+                print("Partially completed request for "..id.." "..promise.."x. Now promised: "..getPromiseItem(id))
                 return true
             elseif processRespond ~= csecureNet.responses.hold_it then
                 promiseItem(id, -promise)
-                print("Request for "..id.." "..promise.."x failed ("..tostring(processRespond)..")! Now promised: "..getPromiseItem(id))
+                print("Failed request for "..id.." "..promise.."x ("..tostring(processRespond)..")! Now promised: "..getPromiseItem(id))
                 return false
             end
         end
@@ -231,11 +232,10 @@ local function requiresItem(id, amount)
     return {id = id, amount = amount}
 end
 
-local function addRecipe(id, amount, timeout, requires, crafter, crafterData)
+local function addRecipe(id, amount, requires, crafter, crafterData)
     local recipe = {
         id = id,
         amount = amount,
-        timeout = timeout,
         requires = requires,
         crafter = crafter,
         crafterData = crafterData
@@ -257,7 +257,7 @@ local function initRecipes()
                 file.close()
                 
                 if parsed ~= nil then
-                    addRecipe(parsed.id, parsed.amount, parsed.timeout, parsed.requires, parsed.crafter, parsed.crafterData)
+                    addRecipe(parsed.id, parsed.amount, parsed.requires, parsed.crafter, parsed.crafterData)
                 else
                     print("Unable to parse recipe ", filePath)
                 end

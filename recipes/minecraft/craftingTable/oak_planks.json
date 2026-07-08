@@ -1,0 +1,21 @@
+{
+    "id": "minecraft:oak_planks",
+    "amount": 4,
+    "crafter": "minecraft:crafting",
+    "requires": [
+        {
+            "id": "minecraft:oak_log",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "ingredients": [
+            "minecraft:oak_log"
+        ],
+        "shape": [
+            1,0,0,
+            0,0,0,
+            0,0,0
+        ]
+    }
+}

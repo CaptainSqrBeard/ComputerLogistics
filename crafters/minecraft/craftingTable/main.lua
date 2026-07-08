@@ -72,7 +72,7 @@ local function oneBatch(task, repeats)
     end
 end
 
-local function craft(queueEntry)
+local function craft(queueEntry, thread)
     local itemLeft = queueEntry.repeats
     print("Requested", itemLeft, "crafts")
     while itemLeft > 0 do
@@ -85,14 +85,14 @@ local function craft(queueEntry)
         else
             sleep(0.1)
             cleanUp(OUTPUT_STORAGE_NAME)
-            return false
+            return result
         end
     end
 
     sleep(0.1)
     cleanUp(OUTPUT_STORAGE_NAME)
 
-    return true
+    return csecureNet.responses.success
 end
 
 modem.open(PORT)
@@ -100,4 +100,4 @@ modem.open(PORT)
 csecureNet.verbose = false
 
 print("Crafter initialized!")
-baseCrafter.initCrafter("minecraft:crafting", craft, modem)
+baseCrafter.initCrafter("minecraft:crafting", craft, modem, 1)

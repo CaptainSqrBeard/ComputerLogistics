@@ -1,21 +1,21 @@
 {
-    "id": "minecraft:copper_block",
-    "amount": 1,
+    "id": "minecraft:oak_slab",
+    "amount": 6,
     "crafter": "minecraft:crafting",
     "requires": [
         {
-            "id": "minecraft:copper_ingot",
-            "amount": 9
+            "id": "minecraft:oak_planks",
+            "amount": 3
         }
     ],
     "crafterData": {
         "ingredients": [
-            "minecraft:copper_ingot"
+            "minecraft:oak_planks"
         ],
         "shape": [
             1,1,1,
-            1,1,1,
-            1,1,1
+            0,0,0,
+            0,0,0
         ]
     }
 }

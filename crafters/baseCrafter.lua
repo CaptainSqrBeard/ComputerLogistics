@@ -3,7 +3,12 @@ local logisticsHelper = require("logisticsHelper")
 
 local PROTOCOL = "csLogistics"
 local NOTIFY_QUEUE_DELAY = 10
+local EMPTY_CRAFT_THREAD = {}
+
 local module = {}
+
+local craftThreadsAmount = 1
+local craftThreads = {EMPTY_CRAFT_THREAD}
 
 local craftQueue = {}
 
@@ -12,6 +17,35 @@ local notifyQueueTimer
 local modem
 local isActive = false
 local spawnNewParallel
+
+local function putIntoThread(entry)
+    for i = 1, craftThreadsAmount do
+        if craftThreads[i] == EMPTY_CRAFT_THREAD then
+            craftThreads[i] = entry
+
+            spawnNewParallel(function()
+                print("Crafting on thread #"..i)
+
+                local craftResult
+                local success, error = pcall(function()
+                    craftResult = module.crafterCraftProcessor(entry, i)
+                end)
+
+                if not success then
+                    print("#"..i..": Got crafting processor error:", error)
+                    csecureNet.sendRespond(csecureNet.responses.internal_server_error, PROTOCOL, entry.requestId, entry.usedModem, entry.replyChannel)
+                elseif craftResult ~= nil then
+                    csecureNet.sendRespond(craftResult, PROTOCOL, entry.requestId, entry.usedModem, entry.replyChannel)
+                end
+
+                craftThreads[i] = EMPTY_CRAFT_THREAD
+            end)
+            
+            return true
+        end
+    end
+    return false
+end
 
 local function processCrafting()
     if isActive then
@@ -22,22 +56,10 @@ local function processCrafting()
         isActive = true
         local currentTask = craftQueue[1]
 
-        print("Crafting...")
-        local craftResult
-        local success, error = pcall(function()
-            craftResult = module.crafterCraftProcessor(currentTask)
-        end)
-
-        if not success then
-            print("Got crafting processor error:", error)
-            csecureNet.sendRespond(csecureNet.responses.internal_server_error, PROTOCOL, currentTask.requestId, currentTask.usedModem, currentTask.replyChannel)
-        elseif craftResult then
-            csecureNet.sendRespond(csecureNet.responses.success, PROTOCOL, currentTask.requestId, currentTask.usedModem, currentTask.replyChannel)
-        else
-            csecureNet.sendRespond(csecureNet.responses.cannot_provide, PROTOCOL, currentTask.requestId, currentTask.usedModem, currentTask.replyChannel)
+        if (putIntoThread(currentTask)) then
+            table.remove(craftQueue, 1)
         end
 
-        table.remove(craftQueue, 1)
         sleep(0.5)
     end
 
@@ -67,9 +89,20 @@ local function respondToCommand(verifiedMessage, msg, usedModem, replyChannel)
     end
 end
 
+local function notifyCraft(entry)
+    csecureNet.sendRespond(csecureNet.responses.hold_it, PROTOCOL, entry.requestId, entry.usedModem, entry.replyChannel)
+end
+
 local function doQueueNotify()
     for i, entry in ipairs(craftQueue) do
-        csecureNet.sendRespond(csecureNet.responses.hold_it, PROTOCOL, entry.requestId, entry.usedModem, entry.replyChannel)
+        notifyCraft(entry)
+    end
+
+    for i = 1, craftThreadsAmount do
+        local entry = craftThreads[i]
+        if entry ~= EMPTY_CRAFT_THREAD then
+            notifyCraft(entry)
+        end
     end
 end
 
@@ -118,12 +151,18 @@ local function processEvents(spawn)
     end
 end
 
-function module.initCrafter(type, craftProcessor, usedModem)
+function module.initCrafter(type, craftProcessor, usedModem, threads)
     csecureNet.importAuthorizedKeys("./authorizedKeys.txt")
     csecureNet.init()
-    modem = usedModem
     module.crafterType = type
     module.crafterCraftProcessor = craftProcessor
+    modem = usedModem
+    module.spawnNewParallel = spawnNewParallel
+
+    craftThreadsAmount = threads
+    for i = 1, threads do
+        craftThreads[i] = EMPTY_CRAFT_THREAD
+    end
     
     notifyQueueTimer = os.startTimer(NOTIFY_QUEUE_DELAY)
     parallel.waitForAll(processEvents, processCrafting)
