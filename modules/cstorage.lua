@@ -125,7 +125,7 @@ function module.pushItems(itemEntries, targetContainer, targetSlot, amount, simu
     local remainingTakeAmount = amount
 
     for i, itemEntry in ipairs(itemEntries) do
-        if remainingTakeAmount ~= nil and remainingTakeAmount <= 0 then
+        if remainingTakeAmount <= 0 then
             break
         end
 
@@ -144,15 +144,10 @@ function module.pushItems(itemEntries, targetContainer, targetSlot, amount, simu
 end
 
 function module.pullItems(fromContainer, toContainers)
-    expect(1, config, "table")
+    expect(2, toContainers, "table")
 
     local itemAmount = 0
     local actuallyPulledItems = 0
-
-    local inputInventory = peripheral.wrap(config.input_inventory)
-    if inputInventory == nil then
-        return
-    end
 
     for slot, item in pairs(fromContainer.list()) do
         itemAmount = itemAmount + item.count

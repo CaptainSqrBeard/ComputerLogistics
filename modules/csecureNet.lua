@@ -111,7 +111,7 @@ function module.readMessage(signedMessage)
             if (module.verbose) then
                 print("Cannot verify; Unauthorized public key")
             end
-            return nil, responses.unauthorized
+            return nil, module.responses.unauthorized
         end
     end
 
@@ -124,7 +124,7 @@ function module.readMessage(signedMessage)
         if (module.verbose) then
             print("Cannot verify; Error in verification: ".. textutils.tabulate(tryVerify))
         end
-        return nil, responses.unauthorized -- cannot be verified
+        return nil, module.responses.unauthorized -- cannot be verified
     end
 
     -- Sign is invalid
@@ -132,7 +132,7 @@ function module.readMessage(signedMessage)
         if (module.verbose) then
             print("Cannot verify; Invalid signature")
         end
-        return nil, responses.unauthorized
+        return nil, module.responses.unauthorized
     end
 
     local payload = textutils.unserializeJSON(signedMessage.payload)
@@ -142,7 +142,7 @@ function module.readMessage(signedMessage)
         if (module.verbose) then
             print("Cannot verify; No sign time")
         end
-        return nil, responses.unauthorized
+        return nil, module.responses.unauthorized
     end
 
     -- Expired message
@@ -151,7 +151,7 @@ function module.readMessage(signedMessage)
         if (module.verbose) then
             print("Cannot verify; Message is expired")
         end
-        return nil, responses.unauthorized
+        return nil, module.responses.unauthorized
     end
     
     if (module.verbose) then
@@ -211,8 +211,8 @@ end
 
 function module.sendRespond(statusCode, protocol, requestId, modem, port)
     expect(1, statusCode, "number")
-    expect(2, protocol, "string")
-    expect(3, requestId, "number")
+    expect(2, protocol, "string", nil)
+    expect(3, requestId, "number", nil)
     expect(5, port, "number")
 
     local respond = module.writeMessage({
@@ -224,7 +224,7 @@ function module.sendRespond(statusCode, protocol, requestId, modem, port)
     modem.transmit(port, port, respond)
 
     if (module.verbose) then
-        print("Send respond message to request #"..requestId)
+        print("Send respond", statusCode, "to request #"..requestId)
     end
 end
 
@@ -245,7 +245,7 @@ function module.sendRespondWithContext(statusCode, context, protocol, requestId,
     modem.transmit(port, port, respond)
 
     if (module.verbose) then
-        print("Send respond message to "..requestId)
+        print("Send contexted respond", statusCode, "to request #"..requestId)
     end
 end
 
@@ -257,6 +257,10 @@ function module.awaitRespond(timeout, modem, port, requestId)
     local timer
     if timeout ~= nil then
         timer = os.startTimer(timeout)
+    end
+
+    if (module.verbose) then
+        print("Waiting respond to request #"..requestId..". Wait:", timeout)
     end
 
     while true do
@@ -296,7 +300,7 @@ function module.processMessage(message, modem, port)
     local verifiedMessage, statusCode = module.readMessage(message)
 
     if verifiedMessage == nil then
-        module.sendRespond(statusCode, module.getHeaderValue("protocol"), message.publicKey, modem, port)
+        module.sendRespond(statusCode, module.getHeaderValue(message, "protocol"), module.getHeaderValue(message, "requestId"), modem, port)
         return
     end
 

@@ -1,0 +1,22 @@
+{
+    "id": "minecraft:iron_block",
+    "amount": 1,
+    "timeout": 60,
+    "crafter": "minecraft:crafting",
+    "requires": [
+        {
+            "id": "minecraft:iron_ingot",
+            "amount": 9
+        }
+    ],
+    "crafterData": {
+        "ingredients": [
+            "minecraft:iron_ingot"
+        ],
+        "shape": [
+            1,1,1,
+            1,1,1,
+            1,1,1
+        ]
+    }
+}

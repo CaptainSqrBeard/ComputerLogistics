@@ -54,17 +54,18 @@ function module.buildGetItemAmount(id)
     }
 end
 
-function module.buildGetItemsAmount(id)
-    expect(1, id, "string")
+function module.buildGetItemsAmount(ids)
+    expect(1, ids, "table")
+    local requestId = math.random(10000000, 99999999)
 
     return {
         type = "getItems",
-        id = id
+        ids = ids
     }, {
         protocol = module.PROTOCOL,
         toRole = module.ROLE_MAIN_STORAGE,
-        requestId = math.random(10000000, 99999999)
-    }
+        requestId = requestId
+    }, requestId
 end
 
 function module.buildPullItems(fromContainer)
@@ -84,6 +85,8 @@ function module.buildCrafterCraftRequest(crafter, repeats, crafterData)
     expect(1, crafter, "string")
     expect(2, repeats, "number")
     expect(3, crafterData, "table")
+    
+    local requestId = math.random(10000000, 99999999)
 
     return {
         type = "craft",
@@ -93,8 +96,8 @@ function module.buildCrafterCraftRequest(crafter, repeats, crafterData)
     }, {
         protocol = module.PROTOCOL,
         toRole = module.ROLE_CRAFTER,
-        requestId = math.random(10000000, 99999999)
-    }
+        requestId = requestId
+    }, requestId
 end
 
 return module

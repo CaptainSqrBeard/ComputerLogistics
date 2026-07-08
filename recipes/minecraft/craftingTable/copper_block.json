@@ -1,0 +1,22 @@
+{
+    "id": "minecraft:copper_block",
+    "amount": 1,
+    "timeout": 60,
+    "crafter": "minecraft:crafting",
+    "requires": [
+        {
+            "id": "minecraft:copper_ingot",
+            "amount": 9
+        }
+    ],
+    "crafterData": {
+        "ingredients": [
+            "minecraft:copper_ingot"
+        ],
+        "shape": [
+            1,1,1,
+            1,1,1,
+            1,1,1
+        ]
+    }
+}

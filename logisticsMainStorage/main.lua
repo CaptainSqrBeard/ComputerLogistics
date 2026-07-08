@@ -5,6 +5,8 @@ local PORT = 24869
 local PROTOCOL = "csLogistics"
 local ITEM_STORAGES_FILE_PATH = "./item_storages.txt"
 
+local spawnNewParallel
+
 local modem = peripheral.find("modem") or error("No modem attached", 0)
 modem.open(PORT)
 local itemStorages = {}
@@ -115,6 +117,43 @@ local function addContainerToSystem(container)
     return true
 end
 
+local function readEvent(eventData)
+    local event = eventData[1]
+
+    if event == "modem_message" then
+        local usedModem = peripheral.wrap(eventData[2])
+        local usedPort = eventData[3]
+        local replyChannel = eventData[4]
+        local msg = eventData[5]
+        local distance = eventData[6]
+    
+        if csecureNet.isValidMessage(msg) and csecureNet.getHeaderValue(msg, "protocol") == PROTOCOL and csecureNet.getHeaderValue(msg, "toRole") == "mainStorage" then
+            local receivedModem  = usedModem
+            local verifiedMessage = csecureNet.processMessage(msg, receivedModem, replyChannel)
+            if verifiedMessage ~= nil then
+                local success, errorMsg = pcall(respondToCommand, verifiedMessage, msg, usedModem, replyChannel)
+            
+                if not success then
+                    csecureNet.sendRespond(csecureNet.responses.internal_server_error, PROTOCOL, csecureNet.getHeaderValue(msg, "requestId"), usedModem, replyChannel)
+                    print("Error while running command!\n"..errorMsg)
+                end
+            end
+        end
+    end
+end
+
+local function processEvents(spawn)
+    spawnNewParallel = spawn
+
+    while true do
+        local eventData = {os.pullEvent()}
+        
+        spawnNewParallel(function()
+            readEvent(eventData)
+        end)
+    end
+end
+
 -- Program init
 csecureNet.verbose = true
 csecureNet.importAuthorizedKeys("./authorizedKeys.txt")
@@ -131,30 +170,4 @@ else
     print("Created new empty 'containers.txt'")
 end
 
-while true do
-    local eventData = {os.pullEvent()}
-    local event = eventData[1]
-
-    if event == "modem_message" then
-        local usedModem = peripheral.wrap(eventData[2])
-        local usedPort = eventData[3]
-        local replyChannel = eventData[4]
-        local msg = eventData[5]
-        local distance = eventData[6]
-
-        if csecureNet.isValidMessage(msg) and csecureNet.getHeaderValue(msg, "protocol") == PROTOCOL and csecureNet.getHeaderValue(msg, "toRole") == "mainStorage" then
-            local receivedModem  = usedModem
-            local verifiedMessage = csecureNet.processMessage(msg, receivedModem, replyChannel)
-            if verifiedMessage ~= nil then
-                local success, errorMsg = pcall(respondToCommand, verifiedMessage, msg, usedModem, replyChannel)
-
-                if not success then
-                    csecureNet.sendRespond(csecureNet.responses.internal_server_error, PROTOCOL, csecureNet.getHeaderValue(msg, "requestId"), usedModem, replyChannel)
-                    print("Error while running command!\n"..errorMsg)
-                end
-            end
-        end
-    end
-
-    sleep(0.5)
-end
+parallel.waitForAll(processEvents)

@@ -1,6 +1,8 @@
 local csecureNet = require("csecureNet")
 local logisticsHelper = require("logisticsHelper")
 
+local SUPPORT_DELAY = 20
+
 local knownRecipes = {}
 local knownRecipesReferences = {}
 
@@ -11,7 +13,71 @@ local supportedItems = {}
 local spawnNewParallel
 local timerItemSupport
 
+local SUPPORTED_ITEMS_PATH = "./supportedItems.json"
+local RECIPES_PATH = "/recipes/"
+local PORT = 24869
 local PROTOCOL = logisticsHelper.PROTOCOL
+
+local modem = peripheral.find("modem") or error("No modem attached", 0)
+modem.open(PORT)
+
+local function promiseItem(id, amount)
+    if promisedItems[id] == nil then
+        promisedItems[id] = math.max(0, amount)
+    else
+        promisedItems[id] = math.max(0, promisedItems[id] + amount)
+    end
+end
+
+local function getPromiseItem(id)
+    if promisedItems[id] == nil then
+        return 0
+    else
+        return math.max(0, promisedItems[id])
+    end
+end
+
+local function requestItem(id, repeats)
+    local recipe = knownRecipesReferences[id]
+
+    if recipe == nil then
+        return false
+    end
+
+    local message, header, requestId = logisticsHelper.buildCrafterCraftRequest(recipe.crafter, repeats, recipe.crafterData)
+
+    local signedPingMessage = csecureNet.writeMessage(message, header)
+
+    modem.transmit(PORT, PORT, signedPingMessage)
+
+    local respond = csecureNet.awaitRespond(5, modem, PORT, requestId)
+
+    if respond == csecureNet.responses.processing then
+        local promise = repeats * recipe.amount
+        promiseItem(id, promise)
+
+        print("Requested "..id.." "..promise.."x. Now promised:", getPromiseItem(id))
+
+        while true do
+            local processRespond, finalContext = csecureNet.awaitRespond(recipe.timeout, modem, PORT, requestId)
+            if processRespond == csecureNet.responses.success then
+                promiseItem(id, -promise)
+                print("Request for "..id.." "..promise.."x completed. Now promised: "..getPromiseItem(id))
+                return true
+            elseif processRespond == csecureNet.responses.partial_content then
+                promiseItem(id, -promise)
+                print("Request for "..id.." "..promise.."x partially completed. Now promised: "..getPromiseItem(id))
+                return true
+            elseif processRespond ~= csecureNet.responses.hold_it then
+                promiseItem(id, -promise)
+                print("Request for "..id.." "..promise.."x failed ("..tostring(processRespond)..")! Now promised: "..getPromiseItem(id))
+                return false
+            end
+        end
+    else
+        print("Unable to request "..id..":", respond) 
+    end
+end
 
 local function commandRequestItem(id, repeats)
     local result = requestItem(id, repeats)
@@ -35,56 +101,31 @@ local function respondToCommand(verifiedMessage, msg, usedModem, replyChannel)
     end
 end
 
-local function requestItem(id, repeats)
-    local recipe = knownRecipesReferences[id]
-
-    if recipe == nil then
-        return false
-    end
-
-    local message, header = logisticsHelper.buildCrafterCraftRequest(recipe.crafter, repeats, recipe.crafterData)
-
-    local signedPingMessage = csecureNet.writeMessage(message, header)
-    modem.transmit(PORT, PORT, signedPingMessage)
-
-    local respond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
-
-    if respond == csecureNet.responses.processing then
-        local promise = repeats * recipe.amount
-        promiseItem(id, promise)
-
-        while true do
-            local processRespond, finalContext = csecureNet.awaitRespond(recipe.timeout, modem, PORT, header.requestId)
-            if processRespond ~= csecureNet.responses.hold_it then
-                promiseItem(id, -promise)
-                return false
-            elseif processRespond == csecureNet.responses.success then
-                promiseItem(id, -promise)
-                return true
-            end
-        end
-    end
-end
-
 local function doItemSupport()
+    if #supportedItems == 0 then
+        return
+    end
+
     -- Get tracked items
     local itemAmounts
 
-    local message, header = logisticsHelper.buildGetItemsAmount(trackedItems)
+    local message, header, requestId = logisticsHelper.buildGetItemsAmount(trackedItems)
     local signedPingMessage = csecureNet.writeMessage(message, header)
     modem.transmit(PORT, PORT, signedPingMessage)
 
-    local respond = csecureNet.awaitRespond(5, modem, PORT)
+    local respond = csecureNet.awaitRespond(5, modem, PORT, requestId)
 
     if respond == csecureNet.responses.processing then
-        local finalRespond, finalContext = csecureNet.awaitRespond(5, modem, PORT)
+        local finalRespond, finalContext = csecureNet.awaitRespond(5, modem, PORT, requestId)
 
         if finalRespond ~= csecureNet.responses.success then
+            print("Unable to complete item support: ", finalRespond)
             return -- Request failed
         end
 
         itemAmounts = finalContext
     else
+        print("Unable to begin item support:", respond)
         return -- Request failed
     end
 
@@ -92,9 +133,18 @@ local function doItemSupport()
         local recipe = knownRecipesReferences[supportedItem.id]
         local amountInStorage = itemAmounts[supportedItem.id]
         if itemAmounts[supportedItem.id] + getPromiseItem(supportedItem.id) < supportedItem.amount then
-            spawnNewParallel(function ()
-                requestItem(supportedItem.id, math.ceil((supportedItem.amount - amountInStorage) / recipe.amount))
-            end)
+            local craftAmount = supportedItem.amount - amountInStorage
+
+            for i, requiredItem in ipairs(recipe.requires) do
+                local maxCrafts = math.floor(itemAmounts[requiredItem.id] / requiredItem.amount)
+                craftAmount = math.min(craftAmount, maxCrafts)
+            end
+
+            if craftAmount > 0 then
+                spawnNewParallel(function ()
+                    requestItem(supportedItem.id, craftAmount)
+                end)
+            end
         end
     end
 end
@@ -110,8 +160,8 @@ local function processEvents(spawn)
             if eventData[2] == timerItemSupport then
                 local success, errorMsg = pcall(function ()
                     -- Start new timer
-                    timerItemSupport = os.startTimer(timeout)
-                    doItemSupport()
+                    timerItemSupport = os.startTimer(SUPPORT_DELAY)
+                    spawnNewParallel(doItemSupport)
                 end)
                 if not success then
                     print("Error in item support process:\n", errorMsg)
@@ -132,7 +182,7 @@ local function processEvents(spawn)
                         local success, errorMsg = pcall(respondToCommand, verifiedMessage, msg, usedModem, replyChannel)
 
                         if not success then
-                            csecureNet.sendRespond(csecureNet.responses.internal_server_error, PROTOCOL, verifiedMessage.publicKey, usedModem, replyChannel)
+                            csecureNet.sendRespond(csecureNet.responses.internal_server_error, PROTOCOL, csecureNet.getHeaderValue(msg, "requestId"), usedModem, replyChannel)
                             print("Error while running command!\n"..errorMsg)
                         end
                     end
@@ -154,10 +204,27 @@ local function trackItem(id)
 end
 
 local function supportItem(id, amount)
+    if amount <= 0 then
+        return
+    end
+
+    local recipe = knownRecipesReferences[id]
+    if recipe == nil then
+        print("Cannot support item", id, "as it doesn't have recipe")
+        return
+    end
+
     table.insert(supportedItems, {
         id = id,
         amount = amount
     })
+    
+    trackItem(id)
+    for i, required in ipairs(recipe.requires) do
+        trackItem(required.id)
+    end
+
+    print("Supporting", amount, "items of", id)
 end
 
 local function requiresItem(id, amount)
@@ -173,49 +240,58 @@ local function addRecipe(id, amount, timeout, requires, crafter, crafterData)
         crafter = crafter,
         crafterData = crafterData
     }
-    for i, required in ipairs(requires) do
-        trackItem(required)
-    end
     knownRecipesReferences[id] = recipe
     table.insert(knownRecipes, recipe)
-end
-
-local function promiseItem(id, amount)
-    if promisedItems[id] == nil then
-        promisedItems[id] = math.max(0, amount)
-    else
-        promisedItems[id] = math.max(0, promisedItems[id] + amount)
-    end
-end
-
-local function getPromiseItem(id)
-    if promisedItems[id] == nil then
-        return 0
-    else
-        promisedItems[id] = math.max(0, promisedItems[id] + amount)
-    end
+    print("Added recipe '"..id.."' for crafter '"..crafter.."'")
 end
 
 local function initRecipes()
-    local allFiles = fs.list("/recipes/")
+    print("Initializing recipes")
+    local allFiles = fs.list(RECIPES_PATH)
     for i, filePath in ipairs(allFiles) do
-        if string.sub(-5) == ".json" then
-            local file = fs.open(filePath, "r")
+        if string.sub(filePath, -5) == ".json" then
+            local file, reason = fs.open(fs.combine(RECIPES_PATH, filePath), "r")
             if file ~= nil then
                 local content = file.readAll()
-                local parsed = textutils.deserialize(content)
+                local parsed = textutils.unserializeJSON(content)
+                file.close()
                 
                 if parsed ~= nil then
                     addRecipe(parsed.id, parsed.amount, parsed.timeout, parsed.requires, parsed.crafter, parsed.crafterData)
+                else
+                    print("Unable to parse recipe ", filePath)
                 end
-
-                file.close()
-            end 
+            else
+                print("Cannot open file:", reason)
+            end
         end
     end
 end
 
-initRecipes()
+local function initSupportedItems()
+    print("Initializing supported items")
+    local file, reason = fs.open(SUPPORTED_ITEMS_PATH, "r")
+    if file ~= nil then
+        local content = file.readAll()
+        local parsed = textutils.unserializeJSON(content)
+        file.close()
 
-timerItemSupport = os.startTimer(timeout)
-parallel.waitForAll(processEvents)
+        if parsed ~= nil then
+            for i, item in ipairs(parsed) do
+                supportItem(item.id, item.amount)
+            end
+        else
+            print("Unable to parse supported items")
+        end
+    else
+        print("Cannot open file:", reason)
+    end
+end
+
+csecureNet.importAuthorizedKeys("./authorizedKeys.txt")
+csecureNet.init()
+initRecipes()
+initSupportedItems()
+
+timerItemSupport = os.startTimer(SUPPORT_DELAY)
+parallel.waitForAll(processEvents, doItemSupport)
