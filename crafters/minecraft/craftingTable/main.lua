@@ -2,14 +2,37 @@ local baseCrafter = require("baseCrafter")
 
 local csecureNet = require("csecureNet")
 local logisticsHelper = require("logisticsHelper")
+local csimpleConfig = require("csimpleConfig")
 
 local PORT = 24869
 
 local modem = peripheral.find("modem") or error("No modem attached", 0)
 
+local cfg = csimpleConfig.initConfig("./config.json")
+
+csimpleConfig.newParameter(cfg, "crafter", nil, "string")
+csimpleConfig.newParameter(cfg, "tempContainer", nil, "string")
+csimpleConfig.newParameter(cfg, "outputContainer", nil, "string")
+csimpleConfig.newParameter(cfg, "redstoneRelay", nil, "string")
+
+local success, error = csimpleConfig.processConfig(cfg)
+
+if not success then
+    print("Unable to process config:", error)
+    return
+end
+
+--[[
 local CRAFTER_PATH = "minecraft:crafter_1"
+local TEMP_STORAGE_NAME = "minecraft:barrel_3"
 local OUTPUT_STORAGE_NAME = "minecraft:barrel_1"
 local REDSTONE_RELAY_NAME = "bottom"
+]]
+
+local CRAFTER_PATH = cfg.crafter
+local TEMP_STORAGE_NAME = cfg.tempContainer
+local OUTPUT_STORAGE_NAME = cfg.outputContainer
+local REDSTONE_RELAY_NAME = cfg.redstoneRelay
 
 local redstoneRelay = peripheral.wrap(REDSTONE_RELAY_NAME)
 
@@ -32,7 +55,7 @@ local function oneBatch(task, repeats)
                 return csecureNet.responses.bad_request
             end
 
-            table.insert(instructions, logisticsHelper.buildInstruction(item, repeats, CRAFTER_PATH, i))
+            table.insert(instructions, logisticsHelper.buildInstruction(item, repeats, TEMP_STORAGE_NAME, i))
         end
     end
 
@@ -45,10 +68,15 @@ local function oneBatch(task, repeats)
     if respond == csecureNet.responses.processing then
         local finalRespond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
         if finalRespond == csecureNet.responses.success then
+            local tempStorage = peripheral.wrap(TEMP_STORAGE_NAME)
+            for i = 1, 9 do
+                tempStorage.pushItems(CRAFTER_PATH, i, nil, i)
+            end
+
             for i = 1, repeats do
-                redstoneRelay.setOutput("front", true)
+                redstoneRelay.setOutput("bottom", true)
                 sleep(0.1)
-                redstoneRelay.setOutput("front", false)
+                redstoneRelay.setOutput("bottom", false)
                 sleep(0.1)
             end
             
@@ -56,12 +84,13 @@ local function oneBatch(task, repeats)
 
             sleep(0.1)
             cleanUp(CRAFTER_PATH)
+            cleanUp(TEMP_STORAGE_NAME)
             
             return nil
         else
             print("Batch failed at item request, got response", finalRespond)
             
-            cleanUp(CRAFTER_PATH)
+            cleanUp(TEMP_STORAGE_NAME)
 
             return csecureNet.responses.cannot_provide
         end
@@ -76,7 +105,7 @@ local function craft(queueEntry, thread)
     local itemLeft = queueEntry.repeats
     print("Requested", itemLeft, "crafts")
     while itemLeft > 0 do
-        local batchRepeats = math.min(itemLeft, 8)
+        local batchRepeats = math.min(itemLeft, 64)
         local result = oneBatch(queueEntry, batchRepeats)
 
         if result == nil then
@@ -99,5 +128,4 @@ modem.open(PORT)
 
 csecureNet.verbose = false
 
-print("Crafter initialized!")
-baseCrafter.initCrafter("minecraft:crafting", craft, modem, 1)
+baseCrafter.initCrafter("minecraft:crafting", craft, modem, PORT, 1)

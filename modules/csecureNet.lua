@@ -32,6 +32,11 @@ module.responses.i_am_teapot = 418
 module.responses.internal_server_error = 500
 module.responses.not_implemented = 501
 
+module.AUTHORIZED_KEYS_PATH = "./authorizedKeys.txt"
+
+module.PROTOCOL = "csSecureNet"
+module.ROLE_CERTIFICATE_SERVER = "certificate"
+
 function module.init()
     random.initWithTiming()
 
@@ -70,22 +75,79 @@ function module.init()
 end
 
 function module.authorizeKey(publicKeyBase64)
-    if (publicKeyBase64 == nil) then
+    if publicKeyBase64 == nil then
         return false
     end
+
+    for i, key in ipairs(module.authorizedKeys) do
+        if key == publicKeyBase64 then
+            return false
+        end
+    end
+
     table.insert(module.authorizedKeys, publicKeyBase64)
     return true
 end
 
 function module.importAuthorizedKeys(path)
-    expect(1, path, "string")
+    expect(1, path, "string", "nil")
+
+    if path == nil then
+        path = module.AUTHORIZED_KEYS_PATH
+    end
 
     local file = fs.open(path, "r")
     if file ~= nil then
-        while module.authorizeKey(file.readLine()) do end
+        while true do
+            local line = file.readLine()
+            module.authorizeKey(line)
+            if line == nil then
+                break
+            end
+        end
         file.close()
     else
         print("WARNING. Provided path", path, "for authorized keys does not exist!")
+    end
+end
+
+function module.saveAuthorizedKeys(path)
+    expect(1, path, "string", "nil")
+
+    if path == nil then
+        path = module.AUTHORIZED_KEYS_PATH
+    end
+
+    local file = fs.open(path, "w")
+    if file ~= nil then
+        file.write(table.concat(module.authorizedKeys, "\n"))
+        file.close()
+    else
+        print("WARNING. Cannot write authorized keys to", path)
+    end
+end
+
+function module.requestAuthorizedKeys(modem, port)
+    expect(2, port, "number")
+
+    local requestId = math.random(10000000, 99999999)
+    local message, header, requestId = {
+        type = "getPublicKeys"
+    }, {
+        protocol = module.PROTOCOL,
+        toRole = module.ROLE_CERTIFICATE_SERVER,
+        requestId = requestId
+    }, requestId
+    
+    local signedPingMessage = module.writeMessage(message, header)
+
+    modem.transmit(port, port, signedPingMessage)
+
+    local respond, context = module.awaitRespond(5, modem, port, requestId)
+    if respond == module.responses.success then
+        for i, publicKey in ipairs(context) do
+            module.authorizeKey(publicKey)
+        end
     end
 end
 
@@ -285,6 +347,9 @@ function module.awaitRespond(timeout, modem, port, requestId)
             then
                 local verifiedMessage = module.readMessage(msg)
                 if verifiedMessage ~= nil then
+                    if timer ~= nil then
+                        os.cancelTimer(timer)
+                    end
                     return verifiedMessage.message.status, verifiedMessage.message.context
                 end
             end

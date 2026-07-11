@@ -1,0 +1,20 @@
+{
+    "id": "farmersdelight:cabbage_leaf",
+    "amount": 2,
+    "crafter": "create:mixing",
+    "requires": [
+        {
+            "id": "farmersdelight:cabbage",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "ingredients": [
+            {
+                "id": "farmersdelight:cabbage",
+                "amount": 1
+            }
+        ],
+        "heat": 0
+    }
+}

@@ -1,0 +1,28 @@
+{
+    "id": "create:andesite_alloy",
+    "amount": 1,
+    "crafter": "create:mixing",
+    "requires": [
+        {
+            "id": "minecraft:andesite",
+            "amount": 1
+        },
+        {
+            "id": "minecraft:iron_nugget",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "ingredients": [
+            {
+                "id": "minecraft:andesite",
+                "amount": 1
+            },
+            {
+                "id": "minecraft:iron_nugget",
+                "amount": 1
+            }
+        ],
+        "heat": 0
+    }
+}

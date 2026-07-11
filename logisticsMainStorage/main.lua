@@ -156,8 +156,12 @@ end
 
 -- Program init
 csecureNet.verbose = true
-csecureNet.importAuthorizedKeys("./authorizedKeys.txt")
+
 csecureNet.init()
+
+csecureNet.importAuthorizedKeys()
+csecureNet.requestAuthorizedKeys(modem, PORT)
+csecureNet.saveAuthorizedKeys()
 
 local containersFile = fs.open(ITEM_STORAGES_FILE_PATH, "r")
 if containersFile ~= nil then

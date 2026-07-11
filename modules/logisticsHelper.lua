@@ -95,6 +95,7 @@ function module.buildCrafterCraftRequest(crafter, repeats, crafterData)
         crafterData = crafterData
     }, {
         protocol = module.PROTOCOL,
+        crafter = crafter,
         toRole = module.ROLE_CRAFTER,
         requestId = requestId
     }, requestId

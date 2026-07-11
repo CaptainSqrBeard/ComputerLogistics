@@ -91,6 +91,7 @@ end
 
 local function notifyCraft(entry)
     csecureNet.sendRespond(csecureNet.responses.hold_it, PROTOCOL, entry.requestId, entry.usedModem, entry.replyChannel)
+    print("Notify for request", entry.requestId)
 end
 
 local function doQueueNotify()
@@ -106,54 +107,65 @@ local function doQueueNotify()
     end
 end
 
+local function processEvent(eventData)
+    local event = eventData[1]
+        
+    if event == "timer" then
+        if eventData[2] == notifyQueueTimer then
+            local success, errorMsg = pcall(function ()
+                notifyQueueTimer = os.startTimer(NOTIFY_QUEUE_DELAY)
+                doQueueNotify()
+            end)
+            if not success then
+                print("Error in item support process:\n", errorMsg)
+            end
+        end
+    elseif event == "modem_message" then
+        local usedModem = peripheral.wrap(eventData[2])
+        local usedPort = eventData[3]
+        local replyChannel = eventData[4]
+        local msg = eventData[5]
+        local distance = eventData[6]
+
+        if csecureNet.isValidMessage(msg) and
+            csecureNet.getHeaderValue(msg, "protocol") == PROTOCOL and
+            csecureNet.getHeaderValue(msg, "toRole") == logisticsHelper.ROLE_CRAFTER and
+            csecureNet.getHeaderValue(msg, "crafter") == module.crafterType
+        then
+            local receivedModem  = usedModem
+            spawnNewParallel(function()
+                local verifiedMessage = csecureNet.processMessage(msg, receivedModem, replyChannel)
+                if verifiedMessage ~= nil then
+                    local success, errorMsg = pcall(respondToCommand, verifiedMessage, msg, usedModem, replyChannel)
+
+                    if not success then
+                        csecureNet.sendRespond(csecureNet.responses.internal_server_error, PROTOCOL, csecureNet.getHeaderValue(msg, "requestId"), usedModem, replyChannel)
+                        print("Error while running command!\n"..errorMsg)
+                    end
+                end
+            end)
+        end
+    end
+end
+
 local function processEvents(spawn)
     spawnNewParallel = spawn
 
     while true do
         local eventData = {os.pullEvent()}
-        local event = eventData[1]
-        
-        if event == "timer" then
-            if eventData[2] == notifyQueueTimer then
-                local success, errorMsg = pcall(function ()
-                    notifyQueueTimer = os.startTimer(NOTIFY_QUEUE_DELAY)
-                    doQueueNotify()
-                end)
-                if not success then
-                    print("Error in item support process:\n", errorMsg)
-                end
-            end
-        elseif event == "modem_message" then
-            local usedModem = peripheral.wrap(eventData[2])
-            local usedPort = eventData[3]
-            local replyChannel = eventData[4]
-            local msg = eventData[5]
-            local distance = eventData[6]
-
-            if csecureNet.isValidMessage(msg) and
-                csecureNet.getHeaderValue(msg, "protocol") == PROTOCOL and
-                csecureNet.getHeaderValue(msg, "toRole") == logisticsHelper.ROLE_CRAFTER
-            then
-                local receivedModem  = usedModem
-                spawnNewParallel(function()
-                    local verifiedMessage = csecureNet.processMessage(msg, receivedModem, replyChannel)
-                    if verifiedMessage ~= nil then
-                        local success, errorMsg = pcall(respondToCommand, verifiedMessage, msg, usedModem, replyChannel)
-
-                        if not success then
-                            csecureNet.sendRespond(csecureNet.responses.internal_server_error, PROTOCOL, csecureNet.getHeaderValue(msg, "requestId"), usedModem, replyChannel)
-                            print("Error while running command!\n"..errorMsg)
-                        end
-                    end
-                end)
-            end
-        end
+        spawnNewParallel(function()
+            processEvent(eventData)
+        end)
     end
 end
 
-function module.initCrafter(type, craftProcessor, usedModem, threads)
-    csecureNet.importAuthorizedKeys("./authorizedKeys.txt")
+function module.initCrafter(type, craftProcessor, usedModem, port, threads)
     csecureNet.init()
+
+    csecureNet.importAuthorizedKeys()
+    csecureNet.requestAuthorizedKeys(usedModem, port)
+    csecureNet.saveAuthorizedKeys()
+    
     module.crafterType = type
     module.crafterCraftProcessor = craftProcessor
     modem = usedModem
@@ -165,6 +177,8 @@ function module.initCrafter(type, craftProcessor, usedModem, threads)
     end
     
     notifyQueueTimer = os.startTimer(NOTIFY_QUEUE_DELAY)
+    print("Crafter with type '"..type.."' initialized! Available threads:", threads)
+
     parallel.waitForAll(processEvents, processCrafting)
 end
 

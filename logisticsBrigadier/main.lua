@@ -1,7 +1,7 @@
 local csecureNet = require("csecureNet")
 local logisticsHelper = require("logisticsHelper")
 
-local REQUEST_TIMEOUT = 10
+local REQUEST_TIMEOUT = 20
 local SUPPORT_DELAY = 20
 
 local knownRecipes = {}
@@ -57,7 +57,7 @@ local function requestItem(id, repeats)
         local promise = repeats * recipe.amount
         promiseItem(id, promise)
 
-        print("Requested "..id.." "..promise.."x. Now promised:", getPromiseItem(id))
+        print("Requested "..id.." "..promise.."x (#"..requestId.."). Now promised:", getPromiseItem(id))
 
         while true do
             local processRespond, finalContext = csecureNet.awaitRespond(REQUEST_TIMEOUT, modem, PORT, requestId)
@@ -69,7 +69,9 @@ local function requestItem(id, repeats)
                 promiseItem(id, -promise)
                 print("Partially completed request for "..id.." "..promise.."x. Now promised: "..getPromiseItem(id))
                 return true
-            elseif processRespond ~= csecureNet.responses.hold_it then
+            elseif processRespond == csecureNet.responses.hold_it then
+                print("Notified about request for "..id.." "..promise.."x (#"..requestId..")")
+            else
                 promiseItem(id, -promise)
                 print("Failed request for "..id.." "..promise.."x ("..tostring(processRespond)..")! Now promised: "..getPromiseItem(id))
                 return false
@@ -288,8 +290,12 @@ local function initSupportedItems()
     end
 end
 
-csecureNet.importAuthorizedKeys("./authorizedKeys.txt")
 csecureNet.init()
+
+csecureNet.importAuthorizedKeys()
+csecureNet.requestAuthorizedKeys(modem, PORT)
+csecureNet.saveAuthorizedKeys()
+
 initRecipes()
 initSupportedItems()
 
