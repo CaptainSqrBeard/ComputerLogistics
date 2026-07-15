@@ -55,7 +55,7 @@ local function countItemsOnDepot(depotPeripheral, id)
             counted = counted + items[i].count
         end
     end
-    return count
+    return counted
 end 
 
 local function cleanUp(storage)
@@ -88,7 +88,7 @@ local function oneBatch(task, repeats, depot)
     if respond == csecureNet.responses.processing then
         local finalRespond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
         if finalRespond == csecureNet.responses.success then
-            print("Pull", depot.depotPeripheral.pullItems(tempStorage, 1))
+            depot.depotPeripheral.pullItems(tempStorage, 1)
             barrelInUse = false
 
             while true do
