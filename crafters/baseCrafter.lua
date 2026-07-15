@@ -27,15 +27,20 @@ local function putIntoThread(entry)
                 print("Crafting on thread #"..i)
 
                 local craftResult
+                local craftResultContext
                 local success, error = pcall(function()
-                    craftResult = module.crafterCraftProcessor(entry, i)
+                    craftResult, craftResultContext = module.crafterCraftProcessor(entry, i)
                 end)
 
                 if not success then
                     print("#"..i..": Got crafting processor error:", error)
                     csecureNet.sendRespond(csecureNet.responses.internal_server_error, PROTOCOL, entry.requestId, entry.usedModem, entry.replyChannel)
                 elseif craftResult ~= nil then
-                    csecureNet.sendRespond(craftResult, PROTOCOL, entry.requestId, entry.usedModem, entry.replyChannel)
+                    if craftResultContext ~= nil then
+                        csecureNet.sendRespondWithContext(craftResult, craftResultContext, PROTOCOL, entry.requestId, entry.usedModem, entry.replyChannel)
+                    else
+                        csecureNet.sendRespond(craftResult, PROTOCOL, entry.requestId, entry.usedModem, entry.replyChannel)
+                    end
                 end
 
                 craftThreads[i] = EMPTY_CRAFT_THREAD

@@ -7,6 +7,7 @@ local SUPPORT_DELAY = 20
 local knownRecipes = {}
 local knownRecipesReferences = {}
 
+local knownItemAmounts = {}
 local trackedItems = {}
 local promisedItems = {}
 local supportedItems = {}
@@ -38,7 +39,16 @@ local function getPromiseItem(id)
     end
 end
 
-local function requestItem(id, repeats)
+local function getPossibleCraftableAmount(threshold, recipe)
+    local craftAmount = threshold
+
+    for i, requiredItem in ipairs(recipe.requires) do
+        local maxCrafts = math.floor(knownItemAmounts[requiredItem.id] / requiredItem.amount)
+        craftAmount = math.min(craftAmount, maxCrafts)
+    end
+end
+
+local function requestItem(id, repeats, repeatIfPartial, multiplier)
     local recipe = knownRecipesReferences[id]
 
     if recipe == nil then
@@ -51,7 +61,7 @@ local function requestItem(id, repeats)
 
     modem.transmit(PORT, PORT, signedPingMessage)
 
-    local respond = csecureNet.awaitRespond(5, modem, PORT, requestId)
+    local respond, context = csecureNet.awaitRespond(5, modem, PORT, requestId)
 
     if respond == csecureNet.responses.processing then
         local promise = repeats * recipe.amount
@@ -67,7 +77,17 @@ local function requestItem(id, repeats)
                 return true
             elseif processRespond == csecureNet.responses.partial_content then
                 promiseItem(id, -promise)
-                print("Partially completed request for "..id.." "..promise.."x. Now promised: "..getPromiseItem(id))
+                if repeatIfPartial and type(context) == "table" and context.missed ~= nil then
+                    local craftAmount = getPossibleCraftableAmount(context.missed * multiplier, recipe)
+                    if craftAmount > 0 then
+                        print("Partially completed request for "..id.." "..promise.."x. Repeating request...")
+                        requestItem(id, craftAmount, repeatIfPartial, multiplier)
+                    else
+                        print("Partially completed request for "..id.." "..promise.."x. Now promised: "..getPromiseItem(id))
+                    end
+                else
+                    print("Partially completed request for "..id.." "..promise.."x. Now promised: "..getPromiseItem(id))
+                end
                 return true
             elseif processRespond == csecureNet.responses.hold_it then
                 print("Notified about request for "..id.." "..promise.."x (#"..requestId..")")
@@ -83,7 +103,7 @@ local function requestItem(id, repeats)
 end
 
 local function commandRequestItem(id, repeats)
-    local result = requestItem(id, repeats)
+    local result = requestItem(id, repeats, false, 1)
     if result then
         return csecureNet.responses.success
     end
@@ -104,14 +124,8 @@ local function respondToCommand(verifiedMessage, msg, usedModem, replyChannel)
     end
 end
 
-local function doItemSupport()
-    if #supportedItems == 0 then
-        return
-    end
-
+local function updateKnownItemAmounts()
     -- Get tracked items
-    local itemAmounts
-
     local message, header, requestId = logisticsHelper.buildGetItemsAmount(trackedItems)
     local signedPingMessage = csecureNet.writeMessage(message, header)
     modem.transmit(PORT, PORT, signedPingMessage)
@@ -123,30 +137,52 @@ local function doItemSupport()
 
         if finalRespond ~= csecureNet.responses.success then
             print("Unable to complete item support: ", finalRespond)
-            return -- Request failed
+            return false -- Request failed
         end
 
-        itemAmounts = finalContext
+        knownItemAmounts = finalContext
     else
         print("Unable to begin item support:", respond)
-        return -- Request failed
+        return false -- Request failed
+    end
+
+    return true
+end
+
+local function doItemSupport()
+    if #supportedItems == 0 then
+        return
+    end
+
+    -- Update known item amounts
+    if not updateKnownItemAmounts() then
+        return
     end
 
     for i, supportedItem in ipairs(supportedItems) do
         local recipe = knownRecipesReferences[supportedItem.id]
-        local amountInStorage = itemAmounts[supportedItem.id]
-        if itemAmounts[supportedItem.id] + getPromiseItem(supportedItem.id) < supportedItem.amount then
-            local craftAmount = supportedItem.amount - amountInStorage
-
-            for i, requiredItem in ipairs(recipe.requires) do
-                local maxCrafts = math.floor(itemAmounts[requiredItem.id] / requiredItem.amount)
-                craftAmount = math.min(craftAmount, maxCrafts)
+        local amountInStorage = knownItemAmounts[supportedItem.id]
+        if knownItemAmounts[supportedItem.id] + getPromiseItem(supportedItem.id) < supportedItem.amount then
+            local multiplier = 1.0
+            local repeatIfPartial = false
+            if supportedItem.requestMultiplier ~= nil then
+                multiplier = supportedItem.requestMultiplier
             end
+            if supportedItem.repeatIfPartial ~= nil then
+                repeatIfPartial = supportedItem.repeatIfPartial
+            end
+
+            local requiredAmount = (supportedItem.amount - amountInStorage) * multiplier
+            local craftAmount = getPossibleCraftableAmount(requiredAmount, recipe)
 
             if craftAmount > 0 then
                 spawnNewParallel(function ()
-                    requestItem(supportedItem.id, craftAmount)
+                    requestItem(supportedItem.id, craftAmount, repeatIfPartial, multiplier)
                 end)
+                -- Remove used resources for craft from available.
+                for i, requiredItem in ipairs(recipe.requires) do
+                    knownItemAmounts[requiredItem.id] = knownItemAmounts[requiredItem.id] - requiredItem.amount * craftAmount
+                end
             end
         end
     end

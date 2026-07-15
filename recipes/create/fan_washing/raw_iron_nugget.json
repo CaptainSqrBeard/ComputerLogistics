@@ -1,0 +1,18 @@
+{
+    "id": "spelunkery:raw_iron_nugget",
+    "amount": 1,
+    "crafter": "create:fan_washing",
+    "requires": [
+        {
+            "id": "minecraft:gravel",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "minecraft:gravel",
+        "expect": {
+            "id": "spelunkery:raw_iron_nugget",
+            "amount": 1
+        }
+    }
+}
