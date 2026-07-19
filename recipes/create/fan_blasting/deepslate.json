@@ -1,0 +1,14 @@
+{
+    "id": "minecraft:deepslate",
+    "amount": 1,
+    "crafter": "create:fan_blasting",
+    "requires": [
+        {
+            "id": "minecraft:cobbled_deepslate",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "minecraft:cobbled_deepslate"
+    }
+}

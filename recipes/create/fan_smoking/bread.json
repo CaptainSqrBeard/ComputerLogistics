@@ -1,0 +1,14 @@
+{
+    "id": "minecraft:bread",
+    "amount": 1,
+    "crafter": "create:fan_smoking",
+    "requires": [
+        {
+            "id": "create:dough",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "create:dough"
+    }
+}

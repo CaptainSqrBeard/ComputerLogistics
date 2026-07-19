@@ -1,0 +1,14 @@
+{
+    "id": "create:zinc_ingot",
+    "amount": 1,
+    "crafter": "create:fan_blasting",
+    "requires": [
+        {
+            "id": "create:raw_zinc",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "create:raw_zinc"
+    }
+}

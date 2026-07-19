@@ -1,0 +1,14 @@
+{
+    "id": "create:dough",
+    "amount": 1,
+    "crafter": "create:fan_washing",
+    "requires": [
+        {
+            "id": "create:wheat_flour",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "create:wheat_flour"
+    }
+}

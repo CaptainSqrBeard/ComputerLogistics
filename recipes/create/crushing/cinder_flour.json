@@ -1,0 +1,15 @@
+{
+    "id": "create:cinder_flour",
+    "amount": 1,
+    "crafter": "create:crushing",
+    "requires": [
+        {
+            "id": "minecraft:andesite",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "minecraft:netherrack",
+        "amount": 1
+    }
+}

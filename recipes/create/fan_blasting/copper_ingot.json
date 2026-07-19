@@ -1,0 +1,14 @@
+{
+    "id": "minecraft:copper_ingot",
+    "amount": 1,
+    "crafter": "create:fan_blasting",
+    "requires": [
+        {
+            "id": "minecraft:raw_copper",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "minecraft:raw_copper"
+    }
+}

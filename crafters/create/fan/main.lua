@@ -101,9 +101,9 @@ local function oneBatch(task, repeats, depot)
             if task.crafterData.expect ~= nil then
                 local count = countItemsOnDepot(depot.depotPeripheral, task.crafterData.expect.id)
                 missed = missed + (math.max(0, task.crafterData.expect.amount * repeats - count))
-            else
-                print("Made batch of", repeats, "crafts")
             end
+            
+            print("Made batch of", repeats, "crafts")
 
             cleanUp(depot.depot)
             cleanUp(tempStorage)
@@ -132,12 +132,12 @@ local function craft(queueEntry, thread)
 
     local totalMissed = 0
     while craftsLeft > 0 do
-        local canPutAtOnce = math.min(64, craftsLeft)
+        local shouldPut = math.min(64, craftsLeft)
 
-        local result, missed = oneBatch(queueEntry, canPutAtOnce, depot)
+        local result, missed = oneBatch(queueEntry, shouldPut, depot)
 
         if result == nil then
-            craftsLeft = craftsLeft - canPutAtOnce
+            craftsLeft = craftsLeft - shouldPut
             totalMissed = totalMissed + missed
             print("Items left:", craftsLeft)
         else

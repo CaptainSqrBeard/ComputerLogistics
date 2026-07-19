@@ -1,0 +1,14 @@
+{
+    "id": "minecraft:gold_ingot",
+    "amount": 1,
+    "crafter": "create:fan_blasting",
+    "requires": [
+        {
+            "id": "minecraft:raw_gold",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "minecraft:raw_gold"
+    }
+}

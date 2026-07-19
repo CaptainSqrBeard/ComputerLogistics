@@ -4,8 +4,8 @@ local csecureNet = require("csecureNet")
 local logisticsHelper = require("logisticsHelper")
 local csimpleConfig = require("csimpleConfig")
 
-local MIXERS = 3
-local mixerData = {}
+local CRUSHERS = 3
+local crusherData = {}
 
 local PORT = 24869
 
@@ -13,38 +13,43 @@ local modem = peripheral.find("modem") or error("No modem attached", 0)
 
 local cfg = csimpleConfig.initConfig("./config.json")
 
-csimpleConfig.newParameter(cfg, "merged_output", nil, "string")
-for i = 1, MIXERS do
-    csimpleConfig.newParameter(cfg, "basin_"..i, nil, "string")
+for i = 1, CRUSHERS do
+    csimpleConfig.newParameter(cfg, "crusher_"..i, nil, "string")
     csimpleConfig.newParameter(cfg, "out_"..i, nil, "string")
 end
 
 local success, error = csimpleConfig.processConfig(cfg)
-
-local mergedOutput = cfg.merged_output
-local mergedOutputPeripheral = peripheral.wrap(mergedOutput)
 
 if not success then
     print("Unable to process config:", error)
     return
 end
 
-for i = 1, MIXERS do
-    mixerData[i] = {
-        basin = cfg["basin_"..i],
-        basinPeripheral = peripheral.wrap(cfg["basin_"..i]),
+for i = 1, CRUSHERS do
+    crusherData[i] = {
+        crusher = cfg["crusher_"..i],
+        crusherPeripheral = peripheral.wrap(cfg["crusher_"..i]),
         out = cfg["out_"..i]
     }
 end
 
-local function isBasinEmpty(basinPeripheral)
-    local items = basinPeripheral.list()
-    for i = 1, 18 do
-        if items[i] ~= nil then
-            return false
-        end
+local function isCrusherEmpty(crusherPeripheral)
+    local items = crusherPeripheral.list()
+    if items[1] ~= nil then
+        return false
     end
     return true
+end
+
+local function countItemsInside(depotPeripheral, id)
+    local counted = 0
+    local items = depotPeripheral.list()
+    for k, item in pairs(items) do
+        if item.name == id then
+            counted = counted + item.count
+        end
+    end
+    return counted
 end 
 
 local function cleanUp(storage)
@@ -53,76 +58,65 @@ local function cleanUp(storage)
     modem.transmit(PORT, PORT, signedMessage)
 end
 
-local function oneBatch(task, repeats, mixer)
-    local instructions = {}
-
+local function oneBatch(task, repeats, crusher)
     print("Making batch of", repeats, "crafts")
+    
+    local missed = 0
 
-    for i, ingredient in ipairs(task.crafterData.ingredients) do
-        table.insert(instructions, logisticsHelper.buildInstruction(ingredient.id, repeats * ingredient.amount, mixer.basin))
-    end
+    local message, header = logisticsHelper.buildPushItemsMessage(true, {
+        logisticsHelper.buildInstruction(task.crafterData.id, repeats, crusher.crusher)
+    })
 
-    local message, header = logisticsHelper.buildPushItemsMessage(true, instructions)
     local signedMessage = csecureNet.writeMessage(message, header)
     modem.transmit(PORT, PORT, signedMessage)
 
     local respond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
 
-    local missed = 0
-
     if respond == csecureNet.responses.processing then
         local finalRespond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
         if finalRespond == csecureNet.responses.success then
             while true do
-                mergedOutputPeripheral.pullItems(mixer.out, 1)
-                if isBasinEmpty(mixer.basinPeripheral) then
+                if isCrusherEmpty(crusher.crusherPeripheral) then
                     break
                 end
                 sleep(0.5)
             end
 
             if task.crafterData.expect ~= nil then
-                local count = countItemsOnDepot(depot.depotPeripheral, task.crafterData.expect.id)
+                local count = countItemsInside(depot.depotPeripheral, task.crafterData.expect.id)
                 missed = missed + (math.max(0, task.crafterData.expect.amount * repeats - count))
             end
 
             print("Made batch of", repeats, "crafts")
-
-            cleanUp(mixer.basin)
             
             return nil, missed
         else
             print("Batch failed at item request, got response", finalRespond)
             
-            cleanUp(mergedOutput)
-            cleanUp(mixer.out)
-            cleanUp(mixer.basin)
+            cleanUp(crusher.out)
+            cleanUp(crusher.crusher)
 
             return csecureNet.responses.cannot_provide
         end
         
     else
-        print("Batch failed at start, got response", finalRespond)
+        print("Batch failed at start, got response", respond)
         return csecureNet.responses.cannot_provide
     end
 end
 
 local function craft(queueEntry, thread)
-    local mixer = mixerData[thread]
+    local crusher = crusherData[thread]
     local craftsLeft = queueEntry.repeats
 
     local totalMissed = 0
-
     while craftsLeft > 0 do
-        local canPutAtOnce = math.min(64, craftsLeft)
-        for i, ingredient in ipairs(queueEntry.crafterData.ingredients) do
-            canPutAtOnce = math.min(canPutAtOnce, math.floor(64/ingredient.amount))
-        end
+        local shouldPut = math.min(64, craftsLeft)
 
-        local result, missed = oneBatch(queueEntry, canPutAtOnce, mixer)
+        local result, missed = oneBatch(queueEntry, shouldPut, crusher)
 
         if result == nil then
-            craftsLeft = craftsLeft - canPutAtOnce
+            craftsLeft = craftsLeft - shouldPut
             totalMissed = totalMissed + missed
             print("Items left:", craftsLeft)
         else
@@ -132,9 +126,8 @@ local function craft(queueEntry, thread)
 
     sleep(2)
     
-    cleanUp(mixer.out)
-    cleanUp(mixer.basin)
-    cleanUp(mergedOutput)
+    cleanUp(crusher.out)
+    cleanUp(crusher.crusher)
 
     if totalMissed > 0 then
         return csecureNet.responses.partial_content, {missed=totalMissed}
@@ -147,4 +140,4 @@ modem.open(PORT)
 
 csecureNet.verbose = false
 
-baseCrafter.initCrafter("create:mixing", craft, modem, PORT, MIXERS)
+baseCrafter.initCrafter("create:crushing", craft, modem, PORT, CRUSHERS)

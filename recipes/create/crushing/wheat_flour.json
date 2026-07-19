@@ -1,0 +1,15 @@
+{
+    "id": "create:wheat_flour",
+    "amount": 1,
+    "crafter": "create:crushing",
+    "requires": [
+        {
+            "id": "minecraft:wheat",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "minecraft:wheat",
+        "amount": 1
+    }
+}
