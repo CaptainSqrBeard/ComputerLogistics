@@ -3,15 +3,15 @@ local expect = require("cc.expect")
 
 local allConfigData = {}
 
-local function toDesiredType(value, type, nullable)
+local function toDesiredType(value, desiredType, nullable)
     if value == "" and nullable then
         return nil, true
-    elseif type == "number" then
+    elseif desiredType == "number" then
         local num = tonumber(value)
         return num, num ~= nil
-    elseif type == "string" then
+    elseif desiredType == "string" then
         return value, true
-    elseif type == "table" then
+    elseif desiredType == "table" then
         local parsed = textutils.unserialize(value)
         return parsed, parsed ~= nil
     end
@@ -28,6 +28,16 @@ function module.newParameter(config, id, defaultValue, ...)
     }
 end
 
+function module.newParameterWithPostFunc(config, id, defaultValue, postFunc, ...)
+    table.insert(allConfigData[config].parameterOrder, id)
+    allConfigData[config].parameters[id] = {
+        id=id,
+        defaultValue=defaultValue,
+        postFunc=postFunc,
+        types={...}
+    }
+end
+
 function module.initConfig(path)
     local publicConfig = {}
     local configData = {parameters={}, path=path, parameterOrder = {}}
@@ -35,22 +45,64 @@ function module.initConfig(path)
     return publicConfig
 end
 
+function module.promptParameterValue(paramData, isNullable)
+    local defaultText = ""
+    if paramData.defaultValue ~= nil then
+        defaultText = tostring(paramData.defaultValue)
+    end
+
+    write("> ("..table.concat(paramData.types, ", ")..") "..paramData.id..": ")
+    local value = read(nil, nil, nil, defaultText)
+
+    local converted, success = toDesiredType(value, paramData.types[1], isNullable)
+
+    if success then
+        if converted == nil and paramData.defaultValue == nil and not isNullable then
+            return nil, "Value '"..id.."' cannot be nil!"
+        end
+        return converted
+    else
+        return paramData.defaultValue
+    end
+end
+
 function module.processConfig(config)
     local configData = allConfigData[config]
+    local toSerialize = {}
 
     local askForNullable = true
     local file = fs.open(configData.path, "r")
     if file ~= nil then
         askForNullable = false
         local raw = file.readAll()
-        local parsed = textutils.unserializeJSON(raw)
+        local parsed = textutils.unserializeJSON(raw, {parse_null = true})
         if parsed ~= nil then
-            for parameterKey, parameterValue in pairs(parsed) do
-                local parameterType = type(parameterValue)
-                for i, validType in ipairs(configData.parameters[parameterKey].types) do
-                    if validType == parameterType then
-                        config[parameterKey] = parameterValue
-                        break
+            for i, paramId in ipairs(configData.parameterOrder) do
+                local paramValue = parsed[paramId]
+                if paramValue ~= nil then
+                    if paramValue == textutils.json_null then
+                        paramValue = nil
+                    end
+                    local paramData = configData.parameters[paramId]
+                    local valueType = type(paramValue)
+                    for i, validType in ipairs(configData.parameters[paramId].types) do
+                        if validType == valueType then
+                            if paramValue == nil then
+                                toSerialize[paramId] = textutils.json_null
+                            else
+                                toSerialize[paramId] = paramValue
+                            end
+                            config[paramId] = paramValue
+                            break
+                        end
+                    end
+                    if paramData.postFunc ~= nil then
+                        local success, postErrorMsg = paramData.postFunc(paramValue)
+                        if not success then
+                            file.close()
+                            return false, postErrorMsg
+                        end
+                        paramData.postFunc = nil
                     end
                 end
             end
@@ -71,35 +123,32 @@ function module.processConfig(config)
                 end
             end
 
-            if not isNullable or isNullable and askForNullable then
-                if isFirstValue then
-                    isFirstValue = false
-                    print("Configure:")
-                end
+            if isNullable and askForNullable or not isNullable then
+                local value, errorMsg = module.promptParameterValue(paramData, isNullable)
 
-                local defaultText = ""
-                if paramData.defaultValue ~= nil then
-                    defaultText = tostring(paramData.defaultValue)
-                end
-
-                write("> ("..table.concat(configData.parameters[id].types, ", ")..") "..id..": ")
-                local value = read(nil, nil, nil, defaultText)
-
-                local converted, success = toDesiredType(value, type(configData.parameters[id].types[1]), isNullable)
-
-                if success then
-                    if converted == nil and paramData.defaultValue == nil and not isNullable then
-                        return false, "Value '"..id.."' cannot be nil!"
+                if errorMsg == nil then
+                    if value == nil then
+                        toSerialize[id] = textutils.json_null
+                    else
+                        toSerialize[id] = value
                     end
-                    config[id] = converted
+                    config[id] = value
+                    if paramData.postFunc ~= nil then
+                        local success, postErrorMsg = paramData.postFunc(value)
+                        if not success then
+                            return false, postErrorMsg
+                        end
+                    end
                 else
-                    config[id] = paramData.defaultValue
+                    return false, errorMsg
                 end
+            else
+                toSerialize[id] = textutils.json_null
             end
         end
     end
 
-    local serialized = textutils.serializeJSON(config)
+    local serialized = textutils.serializeJSON(toSerialize)
 
     local newFile = fs.open(configData.path, "w+")
     newFile.write(serialized)

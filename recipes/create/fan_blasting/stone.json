@@ -1,0 +1,14 @@
+{
+    "id": "minecraft:stone",
+    "amount": 1,
+    "crafter": "create:fan_blasting",
+    "requires": [
+        {
+            "id": "minecraft:cobblestone",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "minecraft:cobblestone"
+    }
+}

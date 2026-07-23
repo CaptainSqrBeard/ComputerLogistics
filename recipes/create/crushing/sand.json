@@ -1,15 +1,15 @@
 {
-    "id": "create:cinder_flour",
+    "id": "minecraft:sand",
     "amount": 1,
     "crafter": "create:crushing",
     "requires": [
         {
-            "id": "minecraft:netherrack",
+            "id": "minecraft:gravel",
             "amount": 1
         }
     ],
     "crafterData": {
-        "id": "minecraft:netherrack",
+        "id": "minecraft:gravel",
         "amount": 1
     }
 }
