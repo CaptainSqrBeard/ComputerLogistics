@@ -1,0 +1,15 @@
+{
+    "id": "create:copper_sheet",
+    "amount": 1,
+    "crafter": "create:pressing",
+    "requires": [
+        {
+            "id": "minecraft:copper_ingot",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "minecraft:copper_ingot",
+        "amount": 1
+    }
+}

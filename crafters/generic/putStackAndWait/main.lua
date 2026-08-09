@@ -37,7 +37,7 @@ for i = 1, cfg.threads do
         processor = cfg["processor_"..i],
         processorPeripheral = peripheral.wrap(cfg["processor_"..i])
     }
-    if cfg["processor_out_"..i] then
+    if cfg["processorOut_"..i] ~= nil then
         data.processorOut = cfg["processorOut_"..i]
         data.processorOutPeripheral = peripheral.wrap(cfg["processorOut_"..i])
     end
@@ -120,11 +120,11 @@ local function oneBatch(task, repeats, processor)
                 isTempStorageUsed = false
             end
 
-            local checkedContainer
             if processor.processorOutPeripheral ~= nil then
-                checkedContainer = processor.processorOutPeripheral
                 while true do
-                    if isStorageEmpty(processor.processorPeripheral) then
+                    if not isStorageEmpty(processor.processorOutPeripheral) then
+                        cleanUp(processor.processorOut)
+                    elseif isStorageEmpty(processor.processorOutPeripheral) and isStorageEmpty(processor.processorPeripheral) then
                         break
                     end
                     sleep(0.5)

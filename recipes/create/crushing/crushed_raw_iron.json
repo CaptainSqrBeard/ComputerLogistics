@@ -1,0 +1,15 @@
+{
+    "id": "create:crushed_raw_iron",
+    "amount": 1,
+    "crafter": "create:crushing",
+    "requires": [
+        {
+            "id": "minecraft:raw_iron",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "minecraft:raw_iron",
+        "amount": 1
+    }
+}

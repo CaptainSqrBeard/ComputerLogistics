@@ -162,7 +162,7 @@ local function updateKnownItemAmounts()
     local respond = csecureNet.awaitRespond(5, modem, PORT, requestId)
 
     if respond == csecureNet.responses.processing then
-        local finalRespond, finalContext = csecureNet.awaitRespond(5, modem, PORT, requestId)
+        local finalRespond, finalContext = csecureNet.awaitRespond(10, modem, PORT, requestId)
 
         if finalRespond ~= csecureNet.responses.success then
             print("Failed to update known item amounts:", finalRespond)
@@ -183,6 +183,8 @@ local function doItemSupport()
         return
     end
 
+    local didSupport = false
+
     -- Update known item amounts
     if not updateKnownItemAmounts() then
         print("Unable to begin item support as known item amounts failed to update")
@@ -197,11 +199,16 @@ local function doItemSupport()
             local craftRepeats = getPossibleCraftRepeats(requiredAmount, recipe)
 
             if craftRepeats > 0 then
+                didSupport = true
                 spawnNewParallel(function ()
                     requestItem(supportedItem.id, craftRepeats, supportedItem.repeatIfPartial, supportedItem.multiplier)
                 end)
             end
         end
+    end
+
+    if not didSupport then
+        print("Attempted to do support; Nothing should be supported for now")
     end
 end
 
@@ -214,9 +221,8 @@ local function processEvents(spawn)
         
         if event == "timer" then
             if eventData[2] == timerItemSupport then
+                timerItemSupport = os.startTimer(SUPPORT_DELAY)
                 local success, errorMsg = pcall(function ()
-                    -- Start new timer
-                    timerItemSupport = os.startTimer(SUPPORT_DELAY)
                     spawnNewParallel(doItemSupport)
                 end)
                 if not success then
@@ -245,8 +251,6 @@ local function processEvents(spawn)
                 end)
             end
         end
-
-        sleep(0.5)
     end
 end
 

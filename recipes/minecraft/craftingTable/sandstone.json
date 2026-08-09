@@ -1,0 +1,21 @@
+{
+    "id": "minecraft:sandstone",
+    "amount": 2,
+    "crafter": "minecraft:crafting",
+    "requires": [
+        {
+            "id": "minecraft:sand",
+            "amount": 4
+        }
+    ],
+    "crafterData": {
+        "ingredients": [
+            "minecraft:sand"
+        ],
+        "shape": [
+            1,1,0,
+            1,1,0,
+            0,0,0
+        ]
+    }
+}

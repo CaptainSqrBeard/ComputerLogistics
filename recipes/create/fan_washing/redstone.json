@@ -1,0 +1,18 @@
+{
+    "id": "minecraft:redstone",
+    "amount": 1,
+    "crafter": "create:fan_washing",
+    "requires": [
+        {
+            "id": "create:crushed_raw_iron",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "create:crushed_raw_iron",
+        "expect": {
+            "id": "minecraft:redstone",
+            "amount": 1
+        }
+    }
+}
