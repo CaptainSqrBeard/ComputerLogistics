@@ -73,9 +73,21 @@ end
 local function commandGetItemsAmount(ids)
     local itemAmounts = {}
     for i, id in ipairs(ids) do
-        local totalFound, itemEntries = cstorage.searchByExactId(itemStorages, nil, id)
-        itemAmounts[id] = totalFound
+        itemAmounts[id] = 0
     end
+
+    local totalFound = cstorage.searchWithCustomHandler(itemStorages, nil,
+    function(item)
+        for i, id in ipairs(ids) do
+            if id == item.id then
+                return true
+            end
+        end
+        return false
+    end,
+    function(item)
+        itemAmounts[item.id] = itemAmounts[item.id] + item.amount
+    end)
 
     return csecureNet.responses.success, itemAmounts
 end
