@@ -5,6 +5,7 @@ local function printUsage()
     print(programName .. " search <prompt>")
     print(programName .. " set-output <storage>")
     print(programName .. " set-input <storage>")
+    print(programName .. " add-pull-inventory <storage>")
     print(programName .. " add-inventory <storage>")
 end
 
@@ -47,6 +48,14 @@ elseif args[1] == "add-inventory" then
     local config = shared.loadConfig()
     shared.saveConfig(shared.addInventory(config, args[2]))
     print("Inventory", args[2], "is now used")
+elseif args[1] == "add-pull-inventory" then
+    if args[2] == nil then
+        printUsage()
+        return
+    end
+    local config = shared.loadConfig()
+    shared.saveConfig(shared.addPullOnlyInventory(config, args[2]))
+    print("Pull-only inventory", args[2], "is now used")
 else
     printUsage()
     return

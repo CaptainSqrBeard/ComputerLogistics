@@ -15,7 +15,7 @@ local searchResult = {}
 local searchEntries = {}
 local totalItems = 0
 local takeAmount = 1
-local takeAmountLimit = 128
+local takeAmountLimit = 256
 
 -- Search bar
 local searchBarString = ""
@@ -497,7 +497,7 @@ function keyEvent(key)
                 takeAmount = takeAmount - 1
             end
             redrawHint()
-        elseif key == keys.right and takeAmount < 128 then
+        elseif key == keys.right and takeAmount < takeAmountLimit then
             if isShifting then
                 takeAmount = takeAmount + 16
                 if takeAmount > takeAmountLimit then

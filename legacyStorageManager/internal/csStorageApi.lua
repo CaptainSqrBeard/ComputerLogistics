@@ -128,18 +128,21 @@ function module.pushMultipleItems(inputItemsFrom, to, count)
     local remainingTakeAmount = count
 
     for i, container in ipairs(inputItemsFrom) do 
-        local takingFromThisContainer = math.min(remainingTakeAmount, container.count)
-        if remainingTakeAmount ~= nil and remainingTakeAmount <= 0 then
-            break
-        end
-        
-        local result = peripheral.wrap(container.inventory).pushItems(to, container.slot, takingFromThisContainer);
-        if result == nil then
-            error("Destination inventory does not exist")
-            break
-        else
-            remainingTakeAmount = remainingTakeAmount - result
-            amountOfPushedItems = amountOfPushedItems + result
+        if container.count > 0 then
+            local takingFromThisContainer = math.min(remainingTakeAmount, container.count)
+            if remainingTakeAmount ~= nil and remainingTakeAmount <= 0 then
+                break
+            end
+
+            local result = peripheral.wrap(container.inventory).pushItems(to, container.slot, takingFromThisContainer);
+            if result == nil then
+                error("Destination inventory does not exist")
+                break
+            else
+                container.count = container.count - takingFromThisContainer
+                remainingTakeAmount = remainingTakeAmount - result
+                amountOfPushedItems = amountOfPushedItems + result
+            end
         end
     end
 

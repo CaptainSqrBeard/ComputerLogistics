@@ -6,7 +6,7 @@ local csFuncs = require("internal.csFuncs")
 
 -- Config file management
 function module.defaultConfig()
-    return {inventories={}}
+    return {inventories={},pull_only_inventories={}}
 end
 
 function module.loadConfig()
@@ -33,7 +33,8 @@ function module.saveConfig(config)
         {
             input_inventory=config.input_inventory,
             output_inventory=config.output_inventory,
-            inventories=config.inventories
+            inventories=config.inventories,
+            pull_only_inventories=config.pull_only_inventories
         }
     ))
     file.close()
@@ -43,13 +44,19 @@ end
 function module.getInventoriesToPull(config)
     local list = {}
 
+    for _, name in ipairs(config.pull_only_inventories) do
+        local types = ({peripheral.getType(name)})
+        if config.input_inventory ~= name and config.output_inventory ~= name and csFuncs.icontains(types, 'inventory') then
+            table.insert(list, name)
+        end
+    end
     for _, name in ipairs(config.inventories) do
         local types = ({peripheral.getType(name)})
         if config.input_inventory ~= name and config.output_inventory ~= name and csFuncs.icontains(types, 'inventory') then
             table.insert(list, name)
         end
     end
-
+    
     return list
 end
 
@@ -76,6 +83,15 @@ function module.addInventory(config, name)
     expect(2, name, "string")
 
     table.insert(config.inventories, name)
+
+    return config
+end
+
+function module.addPullOnlyInventory(config, name)
+    expect(1, config, "table")
+    expect(2, name, "string")
+
+    table.insert(config.pull_only_inventories, name)
 
     return config
 end
