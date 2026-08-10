@@ -3,13 +3,15 @@ local cstorage = require("cstorage")
 
 local PORT = 24869
 local PROTOCOL = "csLogistics"
-local ITEM_STORAGES_FILE_PATH = "./item_storages.txt"
+local PULL_PUSH_STORAGES_FILE_PATH = "./pull_push_storages.txt"
+local PULL_ONLY_STORAGES_FILE_PATH = "./pull_only_storages.txt"
 
 local spawnNewParallel
 
 local modem = peripheral.find("modem") or error("No modem attached", 0)
 modem.open(PORT)
-local itemStorages = {}
+local canPullPushStorages = {}
+local canPullStorages = {}
 
 -- instruction:
 -- id
@@ -29,7 +31,7 @@ local function commandMoveItems(instructions, onlyFull)
     end
 
     for item, amount in pairs(usedItemAmounts) do
-        local totalFound, itemEntries = cstorage.searchByExactId(itemStorages, amount, item)
+        local totalFound, itemEntries = cstorage.searchByExactId(canPullStorages, amount, item)
         usedItemLocations[item] = itemEntries
 
         if onlyFull and amount > totalFound then
@@ -58,7 +60,7 @@ local function commandMoveItems(instructions, onlyFull)
 end
 
 local function commandPullItems(fromContainer)
-    local pulledItems, itemAmount = cstorage.pullItems(peripheral.wrap(fromContainer), itemStorages)
+    local pulledItems, itemAmount = cstorage.pullItems(peripheral.wrap(fromContainer), canPullPushStorages)
     if (itemAmount > pulledItems) then
         return csecureNet.responses.partial_content
     end
@@ -66,7 +68,7 @@ local function commandPullItems(fromContainer)
 end
 
 local function commandGetItemAmount(id)
-    local totalFound, itemEntries = cstorage.searchByExactId(itemStorages, nil, id)
+    local totalFound, itemEntries = cstorage.searchByExactId(canPullStorages, nil, id)
     return csecureNet.responses.success, totalFound
 end
 
@@ -76,7 +78,7 @@ local function commandGetItemsAmount(ids)
         itemAmounts[id] = 0
     end
 
-    local totalFound = cstorage.searchWithCustomHandler(itemStorages, nil,
+    local totalFound = cstorage.searchWithCustomHandler(canPullStorages, nil,
     function(item)
         for i, id in ipairs(ids) do
             if id == item.id then
@@ -121,11 +123,20 @@ local function respondToCommand(verifiedMessage, msg, usedModem, replyChannel)
     end
 end
 
-local function addContainerToSystem(container)
+local function addPullPushContainer(container)
     if container == nil then
         return false
     end
-    table.insert(itemStorages, container)
+    table.insert(canPullPushStorages, container)
+    table.insert(canPullStorages, container)
+    return true
+end
+
+local function addOnlyPullContainer(container)
+    if container == nil then
+        return false
+    end
+    table.insert(canPullStorages, container)
     return true
 end
 
@@ -166,6 +177,24 @@ local function processEvents(spawn)
     end
 end
 
+local function handleLinesInFile(path, handler)
+    local containersFile = fs.open(path, "r")
+    if containersFile ~= nil then
+        while true do
+            local line = containersFile.readLine()
+            if line == nil then
+                break
+            end
+            handler(line)
+        end
+        containersFile.close()
+    else
+        containersFile = fs.open(path, "w")
+        containersFile.close()
+        print("Created new empty file '"..path.."'")
+    end
+end
+
 -- Program init
 csecureNet.verbose = true
 
@@ -175,15 +204,10 @@ csecureNet.importAuthorizedKeys()
 csecureNet.requestAuthorizedKeys(modem, PORT)
 csecureNet.saveAuthorizedKeys()
 
-local containersFile = fs.open(ITEM_STORAGES_FILE_PATH, "r")
-if containersFile ~= nil then
-    while addContainerToSystem(containersFile.readLine()) do end
-    containersFile.close()
-    print("Attached "..#itemStorages.." item storages")
-else
-    containersFile = fs.open(ITEM_STORAGES_FILE_PATH, "w")
-    containersFile.close()
-    print("Created new empty 'containers.txt'")
-end
+
+handleLinesInFile(PULL_PUSH_STORAGES_FILE_PATH, addPullPushContainer)
+handleLinesInFile(PULL_ONLY_STORAGES_FILE_PATH, addOnlyPullContainer)
+
+print("Attached "..#canPullStorages.." item storages with "..(#canPullStorages - #canPullPushStorages).." of them being pull-only")
 
 parallel.waitForAll(processEvents)

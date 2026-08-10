@@ -102,6 +102,28 @@ function module.searchWithCustomHandler(searchIn, thresholdAmount, filter, updat
     return totalFound
 end
 
+function module.getItemAmounts(searchIn, itemIds)
+    local itemAmounts = {}
+    for i, id in ipairs(itemIds) do
+        itemAmounts[id] = 0
+    end
+
+    local totalFound = module.searchWithCustomHandler(searchIn, nil,
+    function(item)
+        for i, id in ipairs(itemIds) do
+            if id == item.id then
+                return true
+            end
+        end
+        return false
+    end,
+    function(item)
+        itemAmounts[item.id] = itemAmounts[item.id] + item.amount
+    end)
+
+    return itemAmounts, totalFound
+end
+
 function module.search(searchIn, thresholdAmount, filter)
     local foundEntries = {}
 

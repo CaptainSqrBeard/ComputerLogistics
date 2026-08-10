@@ -183,8 +183,6 @@ local function doItemSupport()
         return
     end
 
-    local didSupport = false
-
     -- Update known item amounts
     if not updateKnownItemAmounts() then
         print("Unable to begin item support as known item amounts failed to update")
@@ -205,10 +203,6 @@ local function doItemSupport()
                 end)
             end
         end
-    end
-
-    if not didSupport then
-        print("Attempted to do support; Nothing should be supported for now")
     end
 end
 
