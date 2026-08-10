@@ -1,0 +1,14 @@
+{
+    "id": "minecraft:glass",
+    "amount": 1,
+    "crafter": "create:fan_blasting",
+    "requires": [
+        {
+            "id": "minecraft:sand",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "minecraft:sand"
+    }
+}
