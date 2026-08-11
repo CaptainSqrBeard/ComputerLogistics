@@ -1,0 +1,21 @@
+{
+    "id": "minecraft:stripped_birch_wood",
+    "amount": 2,
+    "crafter": "minecraft:crafting",
+    "requires": [
+        {
+            "id": "minecraft:stripped_birch_log",
+            "amount": 4
+        }
+    ],
+    "crafterData": {
+        "ingredients": [
+            "minecraft:stripped_birch_log"
+        ],
+        "shape": [
+            1,1,0,
+            1,1,0,
+            0,0,0
+        ]
+    }
+}

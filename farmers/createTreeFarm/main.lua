@@ -19,10 +19,10 @@ if not success then
     return
 end
 
-local interfaceStoragePeripheral = peripheral.wrap(cfg["interfaceStorage"]) or error("Storage Interface is not attached")
-local internalStoragePeripheral = peripheral.wrap(cfg["internalStorage"]) or error("Internal storage is not attached")
-local relayInterfacePeripheral = peripheral.wrap(cfg["relayInterface"]) or error("Redstone relay for interface is not attached")
-local relayControlPeripheral = peripheral.wrap(cfg["relayControl"]) or error("Redstone relay for control is not attached")
+local interfaceStoragePeripheral = peripheral.wrap(cfg.interfaceStorage) or error("Storage Interface is not attached")
+local internalStoragePeripheral = peripheral.wrap(cfg.internalStorage) or error("Internal storage is not attached")
+local relayInterfacePeripheral = peripheral.wrap(cfg.relayInterface) or error("Redstone relay for interface is not attached")
+local relayControlPeripheral = peripheral.wrap(cfg.relayControl) or error("Redstone relay for control is not attached")
 
 local timerStorageCheck
 local availableSpace = internalStoragePeripheral.size()
@@ -59,15 +59,15 @@ local function checkStorageSpace()
         emptySlots = emptySlots - 1
     end
 
-    local shouldBeEnabled = emptySlots > cfg["slotsKeptEmpty"]
-    relayControlPeripheral.setOutput(cfg["relayControlSide"], shouldBeEnabled)
+    local shouldBeEnabled = emptySlots > cfg.slotsKeptEmpty
+    relayControlPeripheral.setOutput(cfg.relayControlSide, shouldBeEnabled)
 end
 
 local function collectResources()
-    local itemAmounts = cstorage.getItemAmounts({cfg["internalStorage"]}, trackedItems)
+    local itemAmounts = cstorage.getItemAmounts({cfg.internalStorage}, trackedItems)
 
     local itemList = interfaceStoragePeripheral.list()
-    local saplingsUnkept = cfg["plantSpace"]
+    local saplingsUnkept = cfg.plantSpace
 
     for slot, item in pairs(itemList) do
         local shouldBeKeeped = 0
@@ -83,13 +83,13 @@ local function collectResources()
                 local toTake = math.min(canTake, freeSpace)
                 local toTrash = canTake - toTake
                 if toTake > 0 then
-                    interfaceStoragePeripheral.pushItems(cfg["internalStorage"], slot, toTake)
+                    interfaceStoragePeripheral.pushItems(cfg.internalStorage, slot, toTake)
                 end
                 if toTrash > 0 then
-                    interfaceStoragePeripheral.pushItems(cfg["trashStorage"], slot, toTrash)
+                    interfaceStoragePeripheral.pushItems(cfg.trashStorage, slot, toTrash)
                 end
             else
-                interfaceStoragePeripheral.pushItems(cfg["internalStorage"], slot, canTake)
+                interfaceStoragePeripheral.pushItems(cfg.internalStorage, slot, canTake)
             end
         end
     end
@@ -107,7 +107,7 @@ local function processEvents(spawn)
         local event = eventData[1]
         
         if event == "redstone" then
-            if relayInterfacePeripheral.getInput(cfg["relayInterfaceSide"]) then
+            if relayInterfacePeripheral.getInput(cfg.relayInterfaceSide) then
                 collectResources()
             end
         elseif event == "timer" then

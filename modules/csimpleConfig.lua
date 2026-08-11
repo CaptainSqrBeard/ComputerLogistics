@@ -14,6 +14,15 @@ local function toDesiredType(value, desiredType, nullable)
     elseif desiredType == "table" then
         local parsed = textutils.unserialize(value)
         return parsed, parsed ~= nil
+    elseif desiredType == "boolean" then
+        local lowerValue = string.lower(value)
+        if lowerValue == "true" or lowerValue == "y" then
+            return true, true
+        elseif lowerValue == "false" or lowerValue == "n" then
+            return false, true
+        else
+            return nil, false
+        end
     end
 
     return nil, false

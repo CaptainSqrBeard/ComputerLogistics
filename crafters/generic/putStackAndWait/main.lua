@@ -3,6 +3,7 @@ local baseCrafter = require("baseCrafter")
 local csecureNet = require("csecureNet")
 local logisticsHelper = require("logisticsHelper")
 local csimpleConfig = require("csimpleConfig")
+local cstorage = require("cstorage")
 
 local modem = peripheral.find("modem") or error("No modem attached", 0)
 
@@ -17,6 +18,8 @@ local cfg = csimpleConfig.initConfig("./config.json")
 csimpleConfig.newParameter(cfg, "processingType", nil, "string")
 csimpleConfig.newParameter(cfg, "tempInputStorage", nil, "string", "nil")
 csimpleConfig.newParameter(cfg, "maxBatch", 64, "number")
+csimpleConfig.newParameter(cfg, "orderAtOnce", true, "boolean")
+csimpleConfig.newParameter(cfg, "checkDelay", 1.0, "number")
 csimpleConfig.newParameterWithPostFunc(cfg, "threads", 1, function(val)
     for i = 1, val do
         csimpleConfig.newParameter(cfg, "processor_"..i, nil, "string")
@@ -31,6 +34,8 @@ if not success then
     print("Unable to process config:", error)
     return
 end
+
+local tempStoragePeripheral = peripheral.wrap(cfg.tempInputStorage)
 
 for i = 1, cfg.threads do
     local data = {
@@ -71,7 +76,32 @@ local function countItemsInStorage(storagePeripheral, id)
         end
     end
     return counted
-end 
+end
+
+local function canFitInStorage(storagePeripheral, stacks)
+    local emptySlots = storagePeripheral.size()
+
+    for slot, item in pairs(storagePeripheral.list()) do
+        emptySlots = emptySlots - 1
+    end
+
+    return emptySlots >= stacks
+end
+
+local function waitForSpace(storagePeripheral, stacks)
+    if not canFitInStorage(storagePeripheral, stacks) then
+        print("Waiting for space inside input storage...")
+        sleep(cfg.checkDelay)
+        while not canFitInStorage(storagePeripheral, stacks) do
+            sleep(cfg.checkDelay)
+        end
+        print("Got space in storage.")
+    end
+end
+
+local function shouldOrderAtOnce()
+    return cfg.orderAtOnce and cfg.tempInputStorage ~= nil
+end
 
 local function cleanUp(storage)
     if storage == nil then
@@ -87,37 +117,53 @@ local function oneBatch(task, repeats, processor)
     print("Making batch of", repeats, "crafts")
 
     local putInto
+    local putIntoPeripheral
     if cfg.tempInputStorage ~= nil then
         putInto = cfg.tempInputStorage
-
-        if isTempStorageUsed then
-            print("Temporal input storage in use...")
-            while isTempStorageUsed do
-                sleep(0.5)
-            end
-        end
+        putIntoPeripheral = tempStoragePeripheral
     else
         putInto = processor.processor
+        putIntoPeripheral = processor.processorPeripheral
     end
+    
+    local respond
+    
+    if not shouldOrderAtOnce() then
+        local toFit = math.ceil(repeats / 64)
+        waitForSpace(putIntoPeripheral, toFit)
 
-    local message, header = logisticsHelper.buildPushItemsMessage(true, {
-        logisticsHelper.buildInstruction(task.crafterData.id, repeats, putInto)
-    })
+        local message, header = logisticsHelper.buildPushItemsMessage(true, {
+            logisticsHelper.buildInstruction(task.crafterData.id, repeats, putInto)
+        })
 
+        local signedMessage = csecureNet.writeMessage(message, header)
+        modem.transmit(PORT, PORT, signedMessage)
+        respond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
+    else
+        respond = csecureNet.responses.processing
+    end
     local missed = 0
 
-    local signedMessage = csecureNet.writeMessage(message, header)
-    isTempStorageUsed = true and cfg.tempInputStorage ~= nil
-    modem.transmit(PORT, PORT, signedMessage)
-
-    local respond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
 
     if respond == csecureNet.responses.processing then
-        local finalRespond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
+        local finalRespond
+
+        if shouldOrderAtOnce() then
+            finalRespond = csecureNet.responses.success
+        else
+            finalRespond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
+        end
+
         if finalRespond == csecureNet.responses.success then
             if cfg.tempInputStorage ~= nil then
-                processor.processorPeripheral.pullItems(putInto, 1)
-                isTempStorageUsed = false
+                local found, items = cstorage.searchByExactId({putInto}, repeats, task.crafterData.id)
+                if found < repeats then
+                    print("WARN: Found less items than required ("..found.." < "..repeats..")")
+                end
+                local pushed = cstorage.pushItems(items, processor.processor, nil, repeats, false)
+                if pushed < repeats then
+                    print("WARN: Pushed less items than expected ("..pushed.." < "..repeats..")")
+                end
             end
 
             if processor.processorOutPeripheral ~= nil then
@@ -127,14 +173,14 @@ local function oneBatch(task, repeats, processor)
                     elseif isStorageEmpty(processor.processorOutPeripheral) and isStorageEmpty(processor.processorPeripheral) then
                         break
                     end
-                    sleep(0.5)
+                    sleep(cfg.checkDelay)
                 end
             else
                 while true do
                     if not isStorageContains(processor.processorPeripheral, task.crafterData.id) then
                         break
                     end
-                    sleep(0.5)
+                    sleep(cfg.checkDelay)
                 end
             end
 
@@ -147,22 +193,24 @@ local function oneBatch(task, repeats, processor)
 
             cleanUp(processor.processor)
             cleanUp(processor.processorOut)
-            cleanUp(cfg.tempInputStorage)
+            if not shouldOrderAtOnce() then
+                cleanUp(cfg.tempInputStorage)
+            end
             
             return nil, missed
         else
-            isTempStorageUsed = false
             print("Batch failed at item request, got response", finalRespond)
             
             cleanUp(processor.processor)
             cleanUp(processor.processorOut)
-            cleanUp(cfg.tempInputStorage)
+            if not shouldOrderAtOnce() then
+                cleanUp(cfg.tempInputStorage)
+            end
 
             return csecureNet.responses.cannot_provide
         end
         
     else
-        isTempStorageUsed = false
         print("Batch failed at start, got response", respond)
         return csecureNet.responses.cannot_provide
     end
@@ -173,6 +221,37 @@ local function craft(queueEntry, thread)
     local craftsLeft = queueEntry.repeats
 
     local totalMissed = 0
+
+    if shouldOrderAtOnce() then
+        local toFit = math.ceil(craftsLeft / 64)
+
+        waitForSpace(tempStoragePeripheral, toFit)
+
+        local message, header = logisticsHelper.buildPushItemsMessage(true, {
+            logisticsHelper.buildInstruction(queueEntry.crafterData.id, craftsLeft, cfg.tempInputStorage)
+        })
+        local signedMessage = csecureNet.writeMessage(message, header)
+        modem.transmit(PORT, PORT, signedMessage)
+        
+        print("0 - ", cfg.tempInputStorage)
+        local respond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
+        if respond == csecureNet.responses.processing then
+            local finalRespond = csecureNet.awaitRespond(5, modem, PORT, header.requestId)
+
+            if finalRespond ~= csecureNet.responses.success then
+                cleanUp(processor.processor)
+                cleanUp(processor.processorOut)
+                cleanUp(cfg.tempInputStorage)
+                return csecureNet.responses.cannot_provide
+            end
+        else
+            cleanUp(processor.processor)
+            cleanUp(processor.processorOut)
+            cleanUp(cfg.tempInputStorage)
+            return csecureNet.responses.cannot_provide
+        end
+    end
+
     while craftsLeft > 0 do
         local shouldPut = math.min(cfg.maxBatch, craftsLeft)
 
@@ -201,8 +280,18 @@ local function craft(queueEntry, thread)
 
 end
 
+if cfg.orderAtOnce and cfg.tempInputStorage == nil then
+    print("orderAtOnce is enabled, but input storage is undefined! orderAtOnce will not be enabled.")
+end
+
 modem.open(PORT)
 
 csecureNet.verbose = false
+
+--cleanUp(cfg.tempInputStorage)
+--for i, processor in ipairs(processorData) do
+--    cleanUp(processor.processor)
+--    cleanUp(processor.processorOut)
+--end
 
 baseCrafter.initCrafter(cfg.processingType, craft, modem, PORT, cfg.threads)

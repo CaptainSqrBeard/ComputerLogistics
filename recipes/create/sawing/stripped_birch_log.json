@@ -1,0 +1,15 @@
+{
+    "id": "minecraft:stripped_birch_log",
+    "amount": 1,
+    "crafter": "create:cutting",
+    "requires": [
+        {
+            "id": "minecraft:birch_log",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "minecraft:birch_log",
+        "amount": 1
+    }
+}
