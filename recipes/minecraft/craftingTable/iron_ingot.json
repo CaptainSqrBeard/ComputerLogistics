@@ -1,0 +1,21 @@
+{
+    "id": "minecraft:iron_ingot",
+    "amount": 1,
+    "crafter": "minecraft:crafting",
+    "requires": [
+        {
+            "id": "minecraft:iron_nugget",
+            "amount": 9
+        }
+    ],
+    "crafterData": {
+        "ingredients": [
+            "minecraft:iron_nugget"
+        ],
+        "shape": [
+            1,1,1,
+            1,1,1,
+            1,1,1
+        ]
+    }
+}

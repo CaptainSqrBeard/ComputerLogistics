@@ -1,0 +1,14 @@
+{
+    "id": "minecraft:black_concrete",
+    "amount": 1,
+    "crafter": "create:fan_washing",
+    "requires": [
+        {
+            "id": "minecraft:black_concrete_powder",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "minecraft:black_concrete_powder"
+    }
+}

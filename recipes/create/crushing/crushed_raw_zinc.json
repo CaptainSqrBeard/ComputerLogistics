@@ -1,0 +1,15 @@
+{
+    "id": "create:crushed_raw_zinc",
+    "amount": 1,
+    "crafter": "create:crushing",
+    "requires": [
+        {
+            "id": "create:raw_zinc",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "create:raw_zinc",
+        "amount": 1
+    }
+}

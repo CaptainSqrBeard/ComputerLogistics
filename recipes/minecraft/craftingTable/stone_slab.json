@@ -1,0 +1,21 @@
+{
+    "id": "minecraft:stone_slab",
+    "amount": 6,
+    "crafter": "minecraft:crafting",
+    "requires": [
+        {
+            "id": "minecraft:stone",
+            "amount": 3
+        }
+    ],
+    "crafterData": {
+        "ingredients": [
+            "minecraft:stone"
+        ],
+        "shape": [
+            1,1,1,
+            0,0,0,
+            0,0,0
+        ]
+    }
+}

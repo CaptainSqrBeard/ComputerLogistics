@@ -35,8 +35,8 @@ local STORAGE_CHECK_DELAY = 20
 local itemThresholds = {
     ["minecraft:stick"] = 64*4,
     ["minecraft:apple"] = 64*8,
-    ["minecraft:birch_sapling"] = 64*2,
-    ["minecraft:oak_sapling"] = 64*2,
+    ["minecraft:birch_sapling"] = 64*4,
+    ["minecraft:oak_sapling"] = 64*4,
 }
 
 local trackedItems = {}
@@ -66,7 +66,15 @@ end
 local function collectResources()
     local itemAmounts = cstorage.getItemAmounts({cfg.internalStorage}, trackedItems)
 
+    if interfaceStoragePeripheral.size() == 0 then
+        return
+    end
+
     local itemList = interfaceStoragePeripheral.list()
+    if itemList == nil then
+        return
+    end
+
     local saplingsUnkept = cfg.plantSpace
 
     for slot, item in pairs(itemList) do

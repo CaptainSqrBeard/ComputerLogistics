@@ -1,0 +1,26 @@
+{
+    "id": "create:item_vault",
+    "amount": 1,
+    "crafter": "minecraft:crafting",
+    "requires": [
+        {
+            "id": "create:iron_sheet",
+            "amount": 2
+        },
+        {
+            "id": "minecraft:barrel",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "ingredients": [
+            "create:iron_sheet",
+            "minecraft:barrel"
+        ],
+        "shape": [
+            1,0,0,
+            2,0,0,
+            1,0,0
+        ]
+    }
+}

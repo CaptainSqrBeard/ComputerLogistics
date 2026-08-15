@@ -1,0 +1,31 @@
+{
+    "id": "minecraft:black_concrete_powder",
+    "amount": 1,
+    "crafter": "minecraft:crafting",
+    "requires": [
+        {
+            "id": "minecraft:sand",
+            "amount": 4
+        },
+        {
+            "id": "minecraft:gravel",
+            "amount": 4
+        },
+        {
+            "id": "minecraft:black_dye",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "ingredients": [
+            "minecraft:sand",
+            "minecraft:gravel",
+            "minecraft:black_dye"
+        ],
+        "shape": [
+            1,1,1,
+            1,2,2,
+            2,2,3
+        ]
+    }
+}

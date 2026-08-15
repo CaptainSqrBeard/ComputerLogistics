@@ -4,18 +4,18 @@
     "crafter": "minecraft:crafting",
     "requires": [
         {
-            "id": "minecraft:oak_planks",
+            "id": "minecraft:birch_planks",
             "amount": 6
         },
         {
-            "id": "minecraft:oak_slab",
+            "id": "minecraft:birch_slab",
             "amount": 2
         }
     ],
     "crafterData": {
         "ingredients": [
-            "minecraft:oak_planks",
-            "minecraft:oak_slab"
+            "minecraft:birch_planks",
+            "minecraft:birch_slab"
         ],
         "shape": [
             1,2,1,

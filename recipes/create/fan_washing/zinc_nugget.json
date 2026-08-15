@@ -1,0 +1,14 @@
+{
+    "id": "create:zinc_nugget",
+    "amount": 1,
+    "crafter": "create:fan_washing",
+    "requires": [
+        {
+            "id": "create:crushed_raw_zinc",
+            "amount": 1
+        }
+    ],
+    "crafterData": {
+        "id": "create:crushed_raw_zinc"
+    }
+}

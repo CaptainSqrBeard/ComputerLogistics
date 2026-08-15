@@ -1,5 +1,5 @@
 {
-    "id": "minecraft:redstone",
+    "id": "minecraft:iron_nugget",
     "amount": 1,
     "crafter": "create:fan_washing",
     "requires": [
@@ -9,10 +9,6 @@
         }
     ],
     "crafterData": {
-        "id": "create:crushed_raw_iron",
-        "expect": {
-            "id": "minecraft:redstone",
-            "amount": 1
-        }
+        "id": "create:crushed_raw_iron"
     }
 }
